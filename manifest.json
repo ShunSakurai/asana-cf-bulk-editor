@@ -1,21 +1,15 @@
 {
    "action": {
       "default_icon": "images/icon48.png",
-      "default_popup": "popup.html",
       "default_title": "Asana"
    },
    "background": {
       "service_worker": "background.js"
    },
-   "commands": {
-      "_execute_action": {
-         "suggested_key": {
-            "default": "Alt+Shift+A"
-         }
-      }
-   },
-   "description": "Quickly add tasks to Asana from any web page.",
-   "host_permissions": ["https://app.asana.com/*"],
+   "description": "Sort and recolor multiple custom field options in bulk",
+   "host_permissions": [
+      "https://app.asana.com/*"
+   ],
    "icons": {
       "128": "images/icon128.png",
       "16": "images/icon16.png",
@@ -23,9 +17,13 @@
    },
    "incognito": "split",
    "manifest_version": 3,
-   "name": "Asana Extension Example MV3",
+   "name": "Asana CF Bulk Editor",
    "offline_enabled": false,
    "options_page": "options.html",
-   "permissions": [ "activeTab", "cookies", "storage" ],
+   "permissions": [
+      "activeTab",
+      "cookies",
+      "storage"
+   ],
    "version": "0.0.0"
 }
