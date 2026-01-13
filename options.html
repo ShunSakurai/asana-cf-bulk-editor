@@ -1,0 +1,61 @@
+<html>
+
+<head><title>Asana Options</title>
+<script type="text/javascript" src="options.js"></script>
+<link rel="stylesheet" href="options.css"/>
+</head>
+
+<body>
+<table id="layout">
+  <tr><td colspan="3" class="v-spacer"></td></tr>
+  <tr>
+  <td class="h-spacer"></td>
+  <td id="options">
+
+  <table class="form">
+    <tr>
+      <td class="field-name">Default Workspace:</td>
+      <td class="field-value">
+        <div><ul id="workspaces_group">Loading...</ul></div>
+      </td>
+    </tr>
+    <tr>
+      <td class="field-name"></td>
+      <td class="field-notes">
+        The default workspace where new tasks are added. You can always select
+        a different workspace when you're creating a task.
+      </td>
+    </tr>
+
+    <tr><td colspan="2" class="field-spacer"></td></tr>
+
+    <tr>
+      <td class="field-name"></td>
+      <td class="field-value">
+        <div id="save_button" class="button primary-button disabled">
+          <span class="button-text">Save</span>
+        </div>
+        <div id="reset_button" class="button primary-button enabled">
+          <span class="button-text">Reset</span>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td class="field-name"></td>
+      <td class="field-value">
+        <div id="status"></div>
+      </td>
+    </tr>
+  </table>
+
+  </td>
+  <td class="h-spacer"></td>
+
+</tr></table>
+
+</body>
+
+<!-- Depends on all elements being loaded, so we include at the end -->
+<script type="text/javascript" src="options_init.js"></script>
+
+</html>
