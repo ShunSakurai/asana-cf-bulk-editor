@@ -238,6 +238,50 @@ Asana.ServerModel = {
   },
 
   /**
+   * Requests the set of projects in the workspace.
+   *
+   * @param callback {Function(projects)} Callback on success.
+   *     projects {dict[]}
+   */
+  projects: function (callback, parameters) {
+    Asana.ApiBridge.request(
+      'GET', '/workspaces/' + parameters.workspace_gid + '/projects',
+      {
+        archived: parameters.archived || false,
+        opt_fields: 'name,gid'
+      }, callback, {}
+    );
+  },
+
+  /**
+   * Requests the custom field settings for a project.
+   *
+   * @param callback {Function(settings)} Callback on success.
+   *     settings {dict[]}
+   */
+  customFieldSettings: function (callback, parameters) {
+    Asana.ApiBridge.request(
+      'GET', '/projects/' + parameters.project_gid + '/custom_field_settings',
+      {
+        opt_fields: 'custom_field.name,custom_field.resource_subtype'
+      }, callback, {}
+    );
+  },
+
+  /**
+   * Requests the full custom field definition (including enum options).
+   *
+   * @param callback {Function(field)} Callback on success.
+   *     field {dict}
+   */
+  customField: function (callback, parameters) {
+    Asana.ApiBridge.request(
+      'GET', '/custom_fields/' + parameters.custom_field_gid,
+      {}, callback, {}
+    );
+  },
+
+  /**
    * Makes an Asana API request to add a task in the system.
    *
    * @param task {dict} Task fields.
@@ -274,6 +318,25 @@ Asana.ServerModel = {
       },
       {
         miss_cache: true, // Always skip the cache.
+      }
+    );
+  },
+
+  /**
+   * Requests project type-ahead completions for a query.
+   */
+  projectTypeahead: function (callback, parameters) {
+    Asana.ApiBridge.request(
+      'GET', '/workspaces/' + parameters.workspace_gid + '/typeahead',
+      {
+        type: 'project',
+        query: parameters.query,
+        count: 10,
+        opt_fields: 'name,gid'
+      },
+      callback,
+      {
+        miss_cache: true
       }
     );
   },
