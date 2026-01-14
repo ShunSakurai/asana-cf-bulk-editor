@@ -262,6 +262,40 @@ body {
   border: 1px solid var(--border-light);
 }
 
+/* Drag & Drop */
+.drag-handle {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: opacity 0.2s;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.enum-row:hover .drag-handle,
+.enum-row.selected .drag-handle,
+.enum-row:focus-within .drag-handle {
+  opacity: 1;
+}
+
+.enum-row.dragging {
+  opacity: 0.5;
+  background-color: #f6f8f9;
+}
+
+.enum-row.drag-over-top {
+  border-top: 2px solid var(--primary-color);
+}
+
+.enum-row.drag-over-bottom {
+  border-bottom: 2px solid var(--primary-color);
+}
+
 /* Feature Cards */
 .features-grid {
   display: flex;

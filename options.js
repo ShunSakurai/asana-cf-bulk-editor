@@ -536,7 +536,23 @@ const App = {
     options.forEach((opt, index) => {
       const row = document.createElement('div');
       row.className = 'enum-row';
-      row.dataset.index = index; // Store index for reference
+      row.dataset.index = index;
+
+      // Draggable attributes
+      row.draggable = true;
+
+      // Drag Events
+      row.addEventListener('dragstart', (e) => this.handleDragStart(e, index));
+      row.addEventListener('dragover', (e) => this.handleDragOver(e, index));
+      row.addEventListener('dragenter', (e) => this.handleDragEnter(e, index));
+      row.addEventListener('dragleave', (e) => this.handleDragLeave(e, index));
+      row.addEventListener('drop', (e) => this.handleDrop(e, index));
+      row.addEventListener('dragend', (e) => this.handleDragEnd(e, index));
+
+      // Drag Handle
+      const handle = document.createElement('div');
+      handle.className = 'drag-handle';
+      handle.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm8-12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm0 6a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/></svg>`;
 
       // Checkbox
       const checkbox = document.createElement('input');
@@ -569,6 +585,17 @@ const App = {
         this.checkForChanges();
       });
 
+      // Prevent drag when interacting with input
+      input.addEventListener('mousedown', (e) => {
+        row.draggable = false;
+      });
+      input.addEventListener('mouseup', () => {
+        row.draggable = true;
+      });
+      input.addEventListener('blur', () => {
+        row.draggable = true;
+      });
+
       // Update lastCheckedIndex on focus to support starting a range from an edited row
       input.addEventListener('click', (e) => {
         // If Modifier key pressed, treat as Row Selection (allow bubble)
@@ -584,6 +611,7 @@ const App = {
         }
       });
 
+      row.appendChild(handle);
       row.appendChild(checkbox);
       row.appendChild(colorDot);
       row.appendChild(input);
@@ -650,6 +678,158 @@ const App = {
     if (btn) {
       btn.disabled = !this.state.hasUnsavedChanges;
     }
+  },
+
+  // Drag and Drop Handlers
+  handleDragStart: function (e, index) {
+    this.draggedIndex = index;
+    e.dataTransfer.effectAllowed = 'move';
+
+    // Determine what is being dragged
+    const checkboxes = this.elements.enumList.querySelectorAll('.option-checkbox');
+    const isSelected = checkboxes[index].checked;
+
+    if (isSelected) {
+      // Dragging a selection
+      const selectedIndices = [];
+      this.elements.enumList.querySelectorAll('.option-checkbox:checked').forEach(cb => {
+        selectedIndices.push(parseInt(cb.dataset.index));
+      });
+      this.draggedIndices = selectedIndices;
+    } else {
+      // Dragging single unselected item
+      this.draggedIndices = [index];
+    }
+
+    e.dataTransfer.setData('text/plain', JSON.stringify(this.draggedIndices));
+
+    // Visual feedback
+    setTimeout(() => {
+      this.elements.enumList.querySelectorAll('.enum-row').forEach((row, i) => {
+        if (this.draggedIndices.includes(i)) {
+          row.classList.add('dragging');
+        }
+      });
+    }, 0);
+  },
+
+  handleDragOver: function (e, index) {
+    e.preventDefault(); // Allow drop
+    e.dataTransfer.dropEffect = 'move';
+
+    if (this.draggedIndices.includes(index)) return; // Don't highlight self
+
+    const row = this.elements.enumList.children[index];
+    const rect = row.getBoundingClientRect();
+    const midpoint = rect.top + rect.height / 2;
+
+    // Determine invalid drop targets (inside the moving block)
+    // Actually, standard HTML5 DnD logic handles this mostly, but visual feedback needs care.
+
+    // Remove existing highlights
+    this.clearDragHighlights();
+
+    if (e.clientY < midpoint) {
+      row.classList.add('drag-over-top');
+    } else {
+      row.classList.add('drag-over-bottom');
+    }
+  },
+
+  handleDragEnter: function (e, index) {
+    e.preventDefault();
+  },
+
+  handleDragLeave: function (e, index) {
+    // Clean up if leaving the valid drop zone (optional, handleDragOver mostly controls this)
+  },
+
+  clearDragHighlights: function () {
+    this.elements.enumList.querySelectorAll('.enum-row').forEach(row => {
+      row.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
+  },
+
+  handleDragEnd: function (e, index) {
+    this.elements.enumList.querySelectorAll('.enum-row').forEach(row => {
+      row.classList.remove('dragging');
+    });
+    this.clearDragHighlights();
+    this.draggedIndices = null;
+    this.draggedIndex = null;
+  },
+
+  handleDrop: function (e, index) {
+    e.preventDefault();
+    this.clearDragHighlights();
+
+    if (!this.draggedIndices) return;
+
+    const targetIndex = index;
+    const row = this.elements.enumList.children[targetIndex];
+    const rect = row.getBoundingClientRect();
+    const midpoint = rect.top + rect.height / 2;
+    const insertAfter = e.clientY > midpoint;
+
+    // Capture current values (in case of edits)
+    const currentValues = [];
+    const rows = this.elements.enumList.querySelectorAll('.enum-row');
+    rows.forEach((r, i) => {
+      const opt = this.state.enumOptions[i];
+      opt.name = r.querySelector('.option-input').value; // Sync name
+      // Color is already synced
+      currentValues.push(opt);
+    });
+
+    // Identify items to move
+    const itemsToMove = this.draggedIndices.map(i => currentValues[i]);
+
+    // Remove items from array (descending index order to avoid shifting issues)
+    const indicesToRemove = [...this.draggedIndices].sort((a, b) => b - a);
+
+    // Calculate insertion index
+    // When we remove items, indices shift. logic:
+    // 1. Identify Target Item (the one we dropped ON).
+    // 2. Determine if we insert Before or After it.
+    // 3. Perform removal. Check if Target index shifted.
+
+    // Simpler approach:
+    // Construct new array.
+    const newArray = currentValues.filter((_, i) => !this.draggedIndices.includes(i));
+
+    // Find where the "Target" ended up in the new array
+    // The target might have been ONE OF the moved items (unlikely if dragging Self, but possible if dropping into self selection? handled by early return usually)
+
+    // If target was one of the moved items, we treat it as no-op?
+    if (this.draggedIndices.includes(targetIndex)) return;
+
+    // Find the target object in the new array to locate position
+    const targetItem = currentValues[targetIndex];
+    let newTargetIndex = newArray.indexOf(targetItem);
+
+    if (insertAfter) {
+      newTargetIndex += 1;
+    }
+
+    // Insert
+    newArray.splice(newTargetIndex, 0, ...itemsToMove);
+
+    this.state.enumOptions = newArray;
+    this.renderEnumList(this.state.enumOptions);
+
+    // Restore Selection (Optional, beneficial)
+    // We can re-check the moved items
+    const checkboxes = this.elements.enumList.querySelectorAll('.option-checkbox');
+    // We need to know where they ended up. They are now at [newTargetIndex, newTargetIndex + count]
+    for (let i = 0; i < itemsToMove.length; i++) {
+      const newIdx = newTargetIndex + i;
+      if (checkboxes[newIdx]) {
+        checkboxes[newIdx].checked = true;
+        this.updateRowSelection(this.elements.enumList.children[newIdx], true);
+      }
+    }
+
+    this.checkForChanges();
   },
 
   handleRowClick: function (e, currentIndex, checkbox, isCheckboxClick = false) {
