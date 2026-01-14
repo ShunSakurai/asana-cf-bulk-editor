@@ -133,24 +133,38 @@ Asana.ApiBridge = {
 
       fetch(url, attrs)
         .then(response => {
-          if (!response.ok) {
-            console.log('Response not ok', response.json());
-          }
-          return response.json();
+          return response.json().then(json => {
+            if (!response.ok) {
+              console.log('Response not ok', json);
+            }
+            return json;
+          });
         })
         .then(responseJson => {
           if (http_method === 'GET') {
             me._writeCache(responseJson.path, responseJson, new Date());
           }
-          console.log('Successful response', responseJson);
-          callback(responseJson);
+          if (responseJson.errors) {
+            // Explicitly reject if the body has errors, even if status was 200 (rare but possible in some APIs)
+            // or more commonly, non-200 status with error body.
+            console.log('API returned errors', responseJson.errors);
+            callback(responseJson); // ApiBridge standard is callback, but here we might want to ensure 'errors' prop is propagated.
+          } else {
+            console.log('Successful response', responseJson);
+            callback(responseJson);
+          }
         })
         .catch(response => {
-          console.log('Failed response', response);
-          try {
-            callback(response.json());
-          } catch (e) {
-            callback({ errors: [{ message: 'Could not parse response from server' }] });
+          console.log('Failed response/Request Error', response);
+          // Try to read json if possible, otherwise generic error
+          if (response.json) {
+            response.json().then(errJson => {
+              callback(errJson); // Pass the full error object from Asana
+            }).catch(() => {
+              callback({ errors: [{ message: 'Could not parse error response status: ' + response.status }] });
+            });
+          } else {
+            callback({ errors: [{ message: 'Network or Fetch Error: ' + response.message }] });
           }
         });
     });

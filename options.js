@@ -246,7 +246,7 @@ const App = {
   },
 
   // API Calls
-  callApi: function (name, parameters) {
+  callApi: function (name, parameters, options = {}) {
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage(
         { type: 'api', name: name, parameters: parameters },
@@ -257,7 +257,9 @@ const App = {
             return;
           }
           if (response && response.errors) {
-            console.error('API Error', response.errors);
+            if (!options.suppressErrorLog) {
+              console.error('API Error', response.errors);
+            }
             reject(response.errors);
           } else if (response) {
             resolve(response.data);
@@ -426,14 +428,19 @@ const App = {
 
   // Projects - Fetch All (Try first)
   fetchProjects: function (workspaceGid) {
-    this.callApi('projects', { workspace_gid: workspaceGid, archived: false })
+    this.callApi('projects', { workspace_gid: workspaceGid, archived: false }, { suppressErrorLog: true })
       .then(data => {
         this.state.allProjects = data || [];
         // Optional: Update placeholder to indicate loaded
         document.getElementById('project-input').placeholder = "Select or type to search...";
       })
       .catch(err => {
-        console.error('Fetch all projects failed, falling back to typeahead', err);
+        const isTooLarge = err && err.some && err.some(e => e.message && e.message.includes('too large'));
+        if (isTooLarge) {
+          console.log('Fetch all projects: Result too large, falling back to typeahead');
+        } else {
+          console.error('Fetch all projects failed, falling back to typeahead', err);
+        }
         this.state.allProjects = []; // Clear to force typeahead
         document.getElementById('project-input').placeholder = "Type to search projects...";
       });
