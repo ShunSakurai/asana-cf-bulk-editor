@@ -303,6 +303,31 @@ Asana.ServerModel = {
   },
 
   /**
+   * Reorders an enum option.
+   *
+   * @param callback {Function(response)} Callback on success.
+   * @param parameters {dict}
+   *     enum_option_gid {String} ID of the enum option to move.
+   *     before_enum_option {String?} ID of the option to insert before.
+   *     after_enum_option {String?} ID of the option to insert after.
+   *     custom_field_gid {String} ID of the custom field.
+   */
+  insertEnumOption: function (callback, parameters) {
+    const data = {
+      enum_option: parameters.enum_option_gid
+    };
+    if (parameters.before_enum_option) data.before_enum_option = parameters.before_enum_option;
+    if (parameters.after_enum_option) data.after_enum_option = parameters.after_enum_option;
+
+    // Asana API: POST /custom_fields/{custom_field_gid}/enum_options/insert
+    // https://developers.asana.com/reference/insertenumoptionforcustomfield
+    Asana.ApiBridge.request(
+      'POST', '/custom_fields/' + parameters.custom_field_gid + '/enum_options/insert',
+      data, callback, {}
+    );
+  },
+
+  /**
    * Makes an Asana API request to add a task in the system.
    *
    * @param task {dict} Task fields.

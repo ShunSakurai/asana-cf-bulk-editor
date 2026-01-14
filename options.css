@@ -262,6 +262,79 @@ body {
   border: 1px solid var(--border-light);
 }
 
+/* Feature Cards */
+.features-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+  margin-bottom: 24px;
+}
+
+.feature-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: white;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.feature-card:hover {
+  border-color: #cfd1d5;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+.feature-card:active {
+  background-color: #f6f8f9;
+  transform: translateY(0);
+}
+
+.card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background-color: #f6f8f9;
+  border-radius: 50%;
+  color: var(--text-secondary);
+}
+
+.feature-card:hover .card-icon {
+  background-color: #e8ecf1;
+  color: var(--text-primary);
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.card-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Footer & Status */
+.action-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--border-light);
+  padding-top: 20px;
+}
+
 /* States */
 .state-view {
   width: 100%;

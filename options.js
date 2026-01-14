@@ -81,6 +81,11 @@ const App = {
       this.saveChanges();
     });
 
+    // Sort Button
+    document.getElementById('btn-sort').addEventListener('click', () => {
+      this.sortOptions();
+    });
+
     window.addEventListener('beforeunload', (event) => {
       if (this.state.hasUnsavedChanges) {
         event.preventDefault();
@@ -99,20 +104,16 @@ const App = {
     btn.disabled = true;
     btn.textContent = 'Saving...';
 
-    // Calculate Changes
-    // Need to compare every option in state vs original
-    const changes = [];
-
+    // Phase 1: Update Properties (Name/Color)
+    const updates = [];
     this.state.enumOptions.forEach((currentOpt) => {
       const originalOpt = this.state.originalOptions.find(o => o.gid === currentOpt.gid);
-
-      // Find if this option has changes
       if (originalOpt) {
         const hasNameChange = currentOpt.name !== originalOpt.name;
         const hasColorChange = currentOpt.color !== originalOpt.color;
 
         if (hasNameChange || hasColorChange) {
-          changes.push({
+          updates.push({
             gid: currentOpt.gid,
             name: hasNameChange ? currentOpt.name : undefined,
             color: hasColorChange ? currentOpt.color : undefined
@@ -121,28 +122,82 @@ const App = {
       }
     });
 
-    if (changes.length === 0) {
-      // Should not happen if hasUnsavedChanges is true, but safety check
-      btn.textContent = originalText;
-      this.checkForChanges(); // Re-verify state
-      return;
-    }
+    // Run Updates Parallel
+    const updatePromises = updates.map(u => this.callApi('updateEnumOption', {
+      enum_option_gid: u.gid,
+      name: u.name,
+      color: u.color
+    }));
 
-    // Execute Updates in Parallel
-    // Ideally we might want to batch or limit concurrency, but for < 50 options Promise.all is usually fine.
-    const promises = changes.map(change => {
-      return this.callApi('updateEnumOption', {
-        enum_option_gid: change.gid,
-        name: change.name,
-        color: change.color
-      });
-    });
+    // Phase 2: Reordering (Sequential)
+    Promise.all(updatePromises)
+      .then(() => {
+        // Calculate Moves
+        const moves = [];
+        // We simulate the server state to determine minimal moves
+        // Only extract GIDs for simulation
+        const currentServerState = this.state.originalOptions.map(o => o.gid);
+        const targetState = this.state.enumOptions.map(o => o.gid);
 
-    Promise.all(promises)
-      .then(results => {
-        console.log('All updates successful', results);
+        // We need to verify that we are permuting the SAME set of items. 
+        // Logic assumes no additions/deletions in this UI yet.
 
-        // Update Original State to match current
+        targetState.forEach((gid, index) => {
+          // Identify who should be before this item
+          const desiredPrev = index === 0 ? null : targetState[index - 1];
+
+          // Where is this item currently in our simulation?
+          const currentIndex = currentServerState.indexOf(gid);
+          const currentPrev = currentIndex === 0 ? null : currentServerState[currentIndex - 1];
+
+          if (desiredPrev !== currentPrev) {
+            // Move Required
+            const moveParams = {
+              gid: gid
+            };
+
+            if (desiredPrev === null) {
+              // Determine who is currently first to insert before
+              // If currentIndex is 0, we wouldn't be here (desiredPrev===currentPrev===null)
+              // We want to move this item to the very top.
+              // Insert before the item that is currently at index 0
+              moveParams.before = currentServerState[0];
+            } else {
+              moveParams.after = desiredPrev;
+            }
+
+            moves.push(moveParams);
+
+            // Update Simulation
+            currentServerState.splice(currentIndex, 1); // remove from old spot
+            if (desiredPrev === null) {
+              currentServerState.unshift(gid);
+            } else {
+              const newPrevIndex = currentServerState.indexOf(desiredPrev);
+              currentServerState.splice(newPrevIndex + 1, 0, gid);
+            }
+          }
+        });
+
+        // Execute Moves Sequentially
+        return moves.reduce((promise, move) => {
+          return promise.then(() => {
+            // Add a small delay to ensure stability and respect rate limits
+            return new Promise(resolve => setTimeout(resolve, 10))
+              .then(() => {
+                return this.callApi('insertEnumOption', {
+                  custom_field_gid: this.state.currentFieldGid,
+                  enum_option_gid: move.gid,
+                  before_enum_option: move.before,
+                  after_enum_option: move.after
+                });
+              });
+          });
+        }, Promise.resolve());
+      })
+      .then(() => {
+        // All Done
+        console.log('All updates and moves successful');
         this.state.originalOptions = JSON.parse(JSON.stringify(this.state.enumOptions));
         this.state.hasUnsavedChanges = false;
         this.updateApplyButton();
@@ -613,16 +668,8 @@ const App = {
       const start = Math.min(this.lastCheckedIndex, currentIndex);
       const end = Math.max(this.lastCheckedIndex, currentIndex);
 
-      // Determine target state based on the current one (or always Check?)
-      // Usually Shift+Click matches the state of the *anchor* or *current*? 
-      // Let's assume we want to CHECK everything in range.
       const targetState = isCheckboxClick ? checkbox.checked : !checkbox.checked;
-      // If it was a row click (not checkbox), checking logic is inverted relative to "current" state before click
-      // But wait, if row click:
-      //   If current is unchecked, we want to check it.
-      //   So targetState = true.
-      // Actually, simpler: Shift+Select usually *Selects* (Checks).
-      const shouldCheck = true;
+      const shouldCheck = true; // Simpler to always select on shift click
 
       for (let i = start; i <= end; i++) {
         checkboxes[i].checked = shouldCheck;
@@ -638,12 +685,72 @@ const App = {
       this.lastCheckedIndex = currentIndex;
     }
 
-    // Update global last checked if shift was used? 
-    // Actually standard behavior updates anchor on single click, keeps anchor on shift click.
-    // But for simple "Check Range" list:
+    // Update global last checked
     if (!e.shiftKey) {
       this.lastCheckedIndex = currentIndex;
     }
+
+    this.updateSortButton();
+  },
+
+  updateSortButton: function () {
+    const btn = document.getElementById('btn-sort');
+    if (!btn) return;
+
+    const desc = btn.querySelector('.card-desc');
+
+    // Check how many selected
+    const checkboxes = this.elements.enumList.querySelectorAll('.option-checkbox:checked');
+    const total = this.state.enumOptions.length;
+    const selectedCount = checkboxes.length;
+
+    if (selectedCount > 1 && selectedCount < total) {
+      if (desc) desc.textContent = 'Sort selected options alphabetically';
+    } else {
+      if (desc) desc.textContent = 'Sort all options alphabetically';
+    }
+  },
+
+  sortOptions: function () {
+    // 1. Capture current values from DOM (in case user edited names but didn't save)
+    // We need to ensure state.enumOptions is up to date with DOM text inputs
+    const rows = this.elements.enumList.querySelectorAll('.enum-row');
+    rows.forEach((row, i) => {
+      this.state.enumOptions[i].name = row.querySelector('.option-input').value;
+    });
+
+    const checkboxes = this.elements.enumList.querySelectorAll('.option-checkbox');
+    const selectedIndices = [];
+    checkboxes.forEach((cb, i) => {
+      if (cb.checked) selectedIndices.push(i);
+    });
+
+    const total = this.state.enumOptions.length;
+    const isPartialSelection = selectedIndices.length > 1 && selectedIndices.length < total;
+
+    if (isPartialSelection) {
+      // Sort ONLY selected items, keeping ordering relative to their slots
+      const selectedItems = selectedIndices.map(i => this.state.enumOptions[i]);
+
+      // Sort the extracted items
+      selectedItems.sort((a, b) => a.name.localeCompare(b.name));
+
+      // Put them back into the slots
+      selectedIndices.forEach((originalIndex, i) => {
+        this.state.enumOptions[originalIndex] = selectedItems[i];
+      });
+
+    } else {
+      // Sort ALL
+      this.state.enumOptions.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    // Re-render
+    this.renderEnumList(this.state.enumOptions);
+    this.updateSortButton(); // Reset button text if selection clears (renderEnumList clears selection?)
+    // Actually renderEnumList clears selection because it rebuilds DOM.
+    // We might want to preserve selection, but for now clearing is safe.
+    this.checkForChanges();
   },
 
   // Color Picker Logic

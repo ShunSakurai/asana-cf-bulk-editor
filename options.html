@@ -75,8 +75,27 @@
 
       <aside id="right-panel" class="hidden">
         <div class="action-content">
-          <h3>Actions</h3>
-          <p class="action-description">Apply bulk changes to the options selected in the left pane.</p>
+          <h3>Bulk Actions</h3>
+          <p class="action-description">Apply changes to all options.</p>
+          <div class="features-grid">
+            <div id="btn-sort" class="feature-card" role="button" tabindex="0">
+              <div class="card-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M15 10H19" />
+                  <path d="M15 14H19" />
+                  <path d="M15 18H19" />
+                  <path d="M6 18V6" />
+                  <path d="M3 9l3-3 3 3" />
+                  <path d="M5 18h2" />
+                </svg>
+              </div>
+              <div class="card-content">
+                <span class="card-title">Alphabetical Sort</span>
+                <span class="card-desc">Sort all options alphabetically</span>
+              </div>
+            </div>
+          </div>
           <div class="action-footer">
             <button id="btn-apply" class="btn-primary" disabled>Apply changes</button>
             <div id="action-status" class="action-status hidden"></div>
