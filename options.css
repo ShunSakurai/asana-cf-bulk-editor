@@ -324,6 +324,18 @@ body {
   transform: translateY(-1px);
 }
 
+.feature-card.coming-soon {
+  opacity: 0.6;
+  cursor: default;
+  background-color: #f9f9f9;
+}
+
+.feature-card.coming-soon:hover {
+  border-color: var(--border-light);
+  box-shadow: none;
+  transform: none;
+}
+
 .feature-card:active {
   background-color: #f6f8f9;
   transform: translateY(0);
@@ -367,6 +379,10 @@ body {
   margin-top: auto;
   border-top: 1px solid var(--border-light);
   padding-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* Add some space between button and message */
 }
 
 /* States */

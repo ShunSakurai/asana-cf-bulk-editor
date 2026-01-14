@@ -102,7 +102,7 @@ const App = {
     const btn = document.getElementById('btn-apply');
     const originalText = btn.textContent;
     btn.disabled = true;
-    btn.textContent = 'Saving...';
+    btn.textContent = 'Updating Asana...';
 
     // Phase 1: Update Properties (Name/Color)
     const updates = [];
@@ -567,7 +567,7 @@ const App = {
         colorDot.classList.add('multi-enum');
       }
       colorDot.style.backgroundColor = COLORS[opt.color] || COLORS['none'];
-      colorDot.title = opt.color;
+      colorDot.title = `Recolor (current: ${opt.color})`;
 
       colorDot.addEventListener('click', (e) => {
         e.stopPropagation(); // prevent row selection
@@ -1008,7 +1008,7 @@ const App = {
       const row = rows[index];
       const dot = row.querySelector('.color-dot');
       dot.style.backgroundColor = COLORS[colorName];
-      dot.title = colorName;
+      dot.title = `Recolor (current: ${colorName})`;
     });
 
     this.closeColorPicker();
