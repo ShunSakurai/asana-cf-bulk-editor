@@ -404,15 +404,15 @@ const App = {
     // https://developers.asana.com/reference/getcustomfieldsettingsforproject
     this.callApi('customFieldSettings', { project_gid: projectGid })
       .then(data => {
-        // Filter for ENUM fields only
+        // Filter for ENUM and MULTI_ENUM fields
         const enumFields = data
           .map(setting => setting.custom_field)
-          .filter(field => field.resource_subtype === 'enum');
+          .filter(field => field.resource_subtype === 'enum' || field.resource_subtype === 'multi_enum');
 
         this.state.customFields = enumFields;
 
         if (enumFields.length === 0) {
-          this.elements.fieldSelect.innerHTML = '<option value="">No enum fields found</option>';
+          this.elements.fieldSelect.innerHTML = '<option value="">No dropdown fields found</option>';
           this.elements.fieldSelect.disabled = true;
         } else {
           this.renderSelect('fieldSelect', enumFields, 'Select Custom Field');
@@ -426,6 +426,10 @@ const App = {
     this.state.currentFieldGid = fieldGid;
 
     if (fieldGid) {
+      // Determine subtype
+      const field = this.state.customFields.find(f => f.gid === fieldGid);
+      this.state.currentFieldSubtype = field ? field.resource_subtype : 'enum';
+
       this.switchView('loading');
       this.fetchFullFieldDetails(fieldGid);
     } else {
@@ -488,6 +492,9 @@ const App = {
       // Color
       const colorDot = document.createElement('div');
       colorDot.className = 'color-dot';
+      if (this.state.currentFieldSubtype === 'multi_enum') {
+        colorDot.classList.add('multi-enum');
+      }
       colorDot.style.backgroundColor = COLORS[opt.color] || COLORS['none'];
       colorDot.title = opt.color;
 
