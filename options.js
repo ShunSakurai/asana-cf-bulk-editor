@@ -59,6 +59,16 @@ const App = {
     this.elements.workspaceSelect.addEventListener('change', (e) => this.onWorkspaceChange(e.target.value));
     // Project listener handled in initTypeahead
     this.elements.fieldSelect.addEventListener('change', (e) => this.onFieldChange(e.target.value));
+
+    document.getElementById('action-select-all').addEventListener('click', (e) => {
+      e.preventDefault();
+      this.toggleAllSelection(true);
+    });
+
+    document.getElementById('action-deselect-all').addEventListener('click', (e) => {
+      e.preventDefault();
+      this.toggleAllSelection(false);
+    });
   },
 
   switchView: function (viewName) {
@@ -74,11 +84,19 @@ const App = {
       chrome.runtime.sendMessage(
         { type: 'api', name: name, parameters: parameters },
         (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('Runtime Error:', chrome.runtime.lastError);
+            reject(chrome.runtime.lastError);
+            return;
+          }
           if (response && response.errors) {
             console.error('API Error', response.errors);
             reject(response.errors);
-          } else {
+          } else if (response) {
             resolve(response.data);
+          } else {
+            // Fallback for null response without lastError (rare but possible)
+            reject(new Error('Empty response from background script'));
           }
         }
       );
@@ -93,11 +111,25 @@ const App = {
         this.renderSelect('workspaceSelect', data, 'Select Workspace');
         this.elements.workspaceSelect.disabled = false;
 
-        // Load stored preference if available
+        // Load stored preference if available, or default to first workspace
         chrome.storage.sync.get(['defaultWorkspaceGid'], (result) => {
-          if (result.defaultWorkspaceGid) {
-            this.elements.workspaceSelect.value = result.defaultWorkspaceGid;
-            this.onWorkspaceChange(result.defaultWorkspaceGid);
+          let targetGid = result.defaultWorkspaceGid;
+
+          // helper to check if gid exists in options
+          const optionExists = (gid) => {
+            return Array.from(this.elements.workspaceSelect.options).some(o => o.value === gid);
+          };
+
+          if (!targetGid || !optionExists(targetGid)) {
+            // Default to first workspace if available
+            if (data.length > 0) {
+              targetGid = data[0].gid;
+            }
+          }
+
+          if (targetGid) {
+            this.elements.workspaceSelect.value = targetGid;
+            this.onWorkspaceChange(targetGid);
           }
         });
       })
@@ -324,14 +356,19 @@ const App = {
     const listContainer = this.elements.enumList;
     listContainer.innerHTML = '';
 
-    options.forEach(opt => {
+    // Reset last checked index on re-render
+    this.lastCheckedIndex = null;
+
+    options.forEach((opt, index) => {
       const row = document.createElement('div');
       row.className = 'enum-row';
+      row.dataset.index = index; // Store index for reference
 
       // Checkbox
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.className = 'option-checkbox';
+      checkbox.dataset.index = index;
 
       // Color
       const colorDot = document.createElement('div');
@@ -345,12 +382,105 @@ const App = {
       input.className = 'option-input';
       input.value = opt.name;
 
+      // Handle Click on Input
+      input.addEventListener('click', (e) => {
+        // If Modifier key pressed, treat as Row Selection (allow bubble)
+        if (e.shiftKey || e.metaKey || e.ctrlKey) {
+          // Prevent default to avoid text selection interfering with row selection visual
+          e.preventDefault();
+          // Allow bubble to trigger handleRowClick
+        } else {
+          // Normal click: Edit mode, do not toggle row selection
+          e.stopPropagation();
+          // Update anchor for range selection
+          this.lastCheckedIndex = index;
+        }
+      });
+
       row.appendChild(checkbox);
       row.appendChild(colorDot);
       row.appendChild(input);
+
+      // Row Click Handler
+      row.addEventListener('click', (e) => {
+        this.handleRowClick(e, index, checkbox);
+      });
+
+      // Also handle checkbox click specifically to avoid double-toggling if bubbling
+      checkbox.addEventListener('click', (e) => {
+        e.stopPropagation(); // Stop row click
+        this.handleRowClick(e, index, checkbox, true);
+      });
       listContainer.appendChild(row);
     });
-  }
+  },
+
+  handleRowClick: function (e, currentIndex, checkbox, isCheckboxClick = false) {
+    const rows = this.elements.enumList.querySelectorAll('.enum-row');
+    const checkboxes = this.elements.enumList.querySelectorAll('.option-checkbox');
+
+    const isModifier = e.shiftKey || e.metaKey || e.ctrlKey;
+
+    // Ignore row click if not modifier and not checkbox click
+    if (!isModifier && !isCheckboxClick) {
+      return;
+    }
+
+    // Shift Key: Range Selection
+    if (e.shiftKey && this.lastCheckedIndex !== null) {
+      const start = Math.min(this.lastCheckedIndex, currentIndex);
+      const end = Math.max(this.lastCheckedIndex, currentIndex);
+
+      // Determine target state based on the current one (or always Check?)
+      // Usually Shift+Click matches the state of the *anchor* or *current*? 
+      // Let's assume we want to CHECK everything in range.
+      const targetState = isCheckboxClick ? checkbox.checked : !checkbox.checked;
+      // If it was a row click (not checkbox), checking logic is inverted relative to "current" state before click
+      // But wait, if row click:
+      //   If current is unchecked, we want to check it.
+      //   So targetState = true.
+      // Actually, simpler: Shift+Select usually *Selects* (Checks).
+      const shouldCheck = true;
+
+      for (let i = start; i <= end; i++) {
+        checkboxes[i].checked = shouldCheck;
+        this.updateRowSelection(rows[i], shouldCheck);
+      }
+    }
+    // Cmd/Ctrl/Standard Click: Toggle
+    else {
+      if (!isCheckboxClick) {
+        checkbox.checked = !checkbox.checked;
+      }
+      this.updateRowSelection(rows[currentIndex], checkbox.checked);
+      this.lastCheckedIndex = currentIndex;
+    }
+
+    // Update global last checked if shift was used? 
+    // Actually standard behavior updates anchor on single click, keeps anchor on shift click.
+    // But for simple "Check Range" list:
+    if (!e.shiftKey) {
+      this.lastCheckedIndex = currentIndex;
+    }
+  },
+
+  updateRowSelection: function (row, isChecked) {
+    if (isChecked) {
+      row.classList.add('selected');
+    } else {
+      row.classList.remove('selected');
+    }
+  },
+
+  toggleAllSelection: function (shouldSelect) {
+    const rows = this.elements.enumList.querySelectorAll('.enum-row');
+    const checkboxes = this.elements.enumList.querySelectorAll('.option-checkbox');
+
+    rows.forEach((row, index) => {
+      checkboxes[index].checked = shouldSelect;
+      this.updateRowSelection(row, shouldSelect);
+    });
+  },
 };
 
 document.addEventListener('DOMContentLoaded', () => {

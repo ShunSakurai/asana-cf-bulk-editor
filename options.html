@@ -18,7 +18,7 @@
         <h1>Custom Field Editor</h1>
       </div>
       <div class="filters-area">
-        <div class="filter-group">
+        <div class="filter-group filter-workspace">
           <label for="workspace-select">Workspace</label>
           <div class="select-wrapper">
             <select id="workspace-select" disabled>
@@ -26,14 +26,14 @@
             </select>
           </div>
         </div>
-        <div class="filter-group">
+        <div class="filter-group filter-project">
           <label for="project-input">Project</label>
           <div class="combobox-wrapper">
             <input type="text" id="project-input" placeholder="Search projects..." disabled autocomplete="off">
             <div id="project-list" class="combobox-options hidden"></div>
           </div>
         </div>
-        <div class="filter-group">
+        <div class="filter-group filter-field">
           <label for="field-select">Enum Custom Field</label>
           <div class="select-wrapper">
             <select id="field-select" disabled>
@@ -61,6 +61,11 @@
         <div id="state-current" class="state-view hidden">
           <div class="list-header">
             <span class="count-label">Options</span>
+            <div class="selection-controls">
+              <a href="#" id="action-select-all">Select all</a>
+              <span class="separator">|</span>
+              <a href="#" id="action-deselect-all">Deselect all</a>
+            </div>
           </div>
           <div id="enum-list" class="enum-list">
             <!-- Enum options will be rendered here -->

@@ -78,6 +78,17 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.filter-workspace {
+  flex: 0.7;
+}
+
+.filter-project {
+  flex: 1.6;
+}
+
+.filter-field {
   flex: 1;
 }
 
@@ -249,12 +260,34 @@ body {
 .list-header {
   padding: 16px 24px;
   border-bottom: 1px solid var(--border-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .count-label {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
+}
+
+.selection-controls {
+  font-size: 12px;
+}
+
+.selection-controls a {
+  color: var(--primary-color);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.selection-controls a:hover {
+  text-decoration: underline;
+}
+
+.selection-controls .separator {
+  color: var(--border-light);
+  margin: 0 4px;
 }
 
 .enum-list {
@@ -264,13 +297,18 @@ body {
 .enum-row {
   display: flex;
   align-items: center;
-  padding: 8px 16px;
+  padding: 2px 4px;
   gap: 12px;
   border-bottom: 1px solid transparent;
 }
 
 .enum-row:hover {
   background-color: #fbfbfc;
+}
+
+.enum-row.selected {
+  background-color: #eaf5ff;
+  /* Asana-ish light blue selection */
 }
 
 .option-checkbox {
