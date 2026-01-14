@@ -282,6 +282,27 @@ Asana.ServerModel = {
   },
 
   /**
+   * Updates an existing enum option.
+   *
+   * @param callback {Function(response)} Callback on success.
+   * @param parameters {dict}
+   *     enum_option_gid {String} ID of the enum option to update.
+   *     name {String?} New name.
+   *     color {String?} New color.
+   */
+  updateEnumOption: function (callback, parameters) {
+    const data = {};
+    if (parameters.name) data.name = parameters.name;
+    if (parameters.color) data.color = parameters.color;
+    // Asana API: PUT /enum_options/{gid}
+    // https://developers.asana.com/reference/updateenumoption
+    Asana.ApiBridge.request(
+      'PUT', '/enum_options/' + parameters.enum_option_gid,
+      data, callback, {}
+    );
+  },
+
+  /**
    * Makes an Asana API request to add a task in the system.
    *
    * @param task {dict} Task fields.

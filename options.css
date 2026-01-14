@@ -398,6 +398,28 @@ body {
   outline: none;
 }
 
+/* Status Message */
+.action-status {
+  margin-top: 12px;
+  font-size: 13px;
+  text-align: center;
+  color: var(--text-secondary);
+  min-height: 20px;
+  transition: opacity 0.3s;
+}
+
+.action-status.success {
+  color: var(--success-text, #2e7d32);
+}
+
+.action-status.error {
+  color: var(--error-text, #d32f2f);
+}
+
+.action-status.hidden {
+  opacity: 0;
+}
+
 /* Status Bar */
 #status-bar {
   position: fixed;
@@ -415,4 +437,35 @@ body {
 
 #status-bar.visible {
   opacity: 1;
+}
+
+/* Color Picker */
+.color-picker-popover {
+  position: absolute;
+  background: white;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  z-index: 2000;
+}
+
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+}
+
+.color-option {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  transition: transform 0.1s;
+}
+
+.color-option:hover {
+  transform: scale(1.2);
+  border-color: rgba(0, 0, 0, 0.2);
 }

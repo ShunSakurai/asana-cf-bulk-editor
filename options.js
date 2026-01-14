@@ -55,7 +55,9 @@ const App = {
     this.elements.enumList = document.getElementById('enum-list');
 
     this.attachEventListeners();
+    this.attachEventListeners();
     this.initTypeahead();
+    this.initColorPicker();
     this.fetchWorkspaces();
   },
 
@@ -74,13 +76,99 @@ const App = {
       this.toggleAllSelection(false);
     });
 
+    // Save Button
+    document.getElementById('btn-apply').addEventListener('click', () => {
+      this.saveChanges();
+    });
+
     window.addEventListener('beforeunload', (event) => {
       if (this.state.hasUnsavedChanges) {
         event.preventDefault();
-        // Chrome requires this to show the prompt
         event.returnValue = '';
       }
     });
+  },
+
+  // ... (switchView, callApi, fetchWorkspaces...)
+
+  saveChanges: function () {
+    if (!this.state.hasUnsavedChanges) return;
+
+    const btn = document.getElementById('btn-apply');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    // Calculate Changes
+    // Need to compare every option in state vs original
+    const changes = [];
+
+    this.state.enumOptions.forEach((currentOpt) => {
+      const originalOpt = this.state.originalOptions.find(o => o.gid === currentOpt.gid);
+
+      // Find if this option has changes
+      if (originalOpt) {
+        const hasNameChange = currentOpt.name !== originalOpt.name;
+        const hasColorChange = currentOpt.color !== originalOpt.color;
+
+        if (hasNameChange || hasColorChange) {
+          changes.push({
+            gid: currentOpt.gid,
+            name: hasNameChange ? currentOpt.name : undefined,
+            color: hasColorChange ? currentOpt.color : undefined
+          });
+        }
+      }
+    });
+
+    if (changes.length === 0) {
+      // Should not happen if hasUnsavedChanges is true, but safety check
+      btn.textContent = originalText;
+      this.checkForChanges(); // Re-verify state
+      return;
+    }
+
+    // Execute Updates in Parallel
+    // Ideally we might want to batch or limit concurrency, but for < 50 options Promise.all is usually fine.
+    const promises = changes.map(change => {
+      return this.callApi('updateEnumOption', {
+        enum_option_gid: change.gid,
+        name: change.name,
+        color: change.color
+      });
+    });
+
+    Promise.all(promises)
+      .then(results => {
+        console.log('All updates successful', results);
+
+        // Update Original State to match current
+        this.state.originalOptions = JSON.parse(JSON.stringify(this.state.enumOptions));
+        this.state.hasUnsavedChanges = false;
+        this.updateApplyButton();
+
+        // Show Status
+        const status = document.getElementById('action-status');
+        status.textContent = 'Changes saved successfully.';
+        status.className = 'action-status success';
+        status.classList.remove('hidden');
+
+        setTimeout(() => {
+          status.classList.add('hidden');
+        }, 3000);
+
+        btn.textContent = 'Apply changes';
+      })
+      .catch(err => {
+        console.error('Save failed', err);
+        const status = document.getElementById('action-status');
+        status.textContent = 'Failed to save: ' + (err.message || 'Unknown error');
+        status.className = 'action-status error';
+        status.classList.remove('hidden');
+
+        btn.disabled = false;
+        btn.textContent = 'Apply changes';
+      });
   },
 
   switchView: function (viewName) {
@@ -403,6 +491,11 @@ const App = {
       colorDot.style.backgroundColor = COLORS[opt.color] || COLORS['none'];
       colorDot.title = opt.color;
 
+      colorDot.addEventListener('click', (e) => {
+        e.stopPropagation(); // prevent row selection
+        this.openColorPicker(e, index);
+      });
+
       // Name Input
       const input = document.createElement('input');
       input.type = 'text';
@@ -468,15 +561,19 @@ const App = {
       currentOptions.push({
         gid: opt.gid,
         name: input.value,
-        color: opt.color, // Color picking not yet implemented in UI, so use state
-        enabled: opt.enabled // Preserved from state
+        color: opt.color, // Color is now updated in state by selectColor
+        enabled: opt.enabled
       });
     });
 
     // Compare with Original
     // Simple stringify comparison for deep equality of relevant fields
     // We map only fields that *can* change in this UI (currently just Name)
-    const extractRelevant = (opts) => opts.map(o => ({ gid: o.gid, name: o.name }));
+    const extractRelevant = (opts) => opts.map(o => ({
+      gid: o.gid,
+      name: o.name,
+      color: o.color
+    }));
 
     const originalJson = JSON.stringify(extractRelevant(this.state.originalOptions));
     const currentJson = JSON.stringify(extractRelevant(currentOptions));
@@ -540,6 +637,88 @@ const App = {
     if (!e.shiftKey) {
       this.lastCheckedIndex = currentIndex;
     }
+  },
+
+  // Color Picker Logic
+  initColorPicker: function () {
+    const picker = document.getElementById('color-picker');
+    const grid = document.getElementById('color-grid');
+
+    // Render colors
+    Object.entries(COLORS).forEach(([name, hex]) => {
+      const dot = document.createElement('div');
+      dot.className = 'color-option';
+      dot.style.backgroundColor = hex;
+      dot.title = name;
+      dot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.selectColor(name);
+      });
+      grid.appendChild(dot);
+    });
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (!picker.classList.contains('hidden') && !picker.contains(e.target)) {
+        this.closeColorPicker();
+      }
+    });
+  },
+
+  openColorPicker: function (e, rowIndex) {
+    this.activeColorRowIndex = rowIndex;
+    const picker = document.getElementById('color-picker');
+    const target = e.target;
+    const rect = target.getBoundingClientRect();
+
+    // Position popover
+    picker.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    picker.style.left = (rect.left + window.scrollX) + 'px';
+
+    picker.classList.remove('hidden');
+  },
+
+  closeColorPicker: function () {
+    document.getElementById('color-picker').classList.add('hidden');
+    this.activeColorRowIndex = null;
+  },
+
+  selectColor: function (colorName) {
+    if (this.activeColorRowIndex === null) return;
+
+    const rows = this.elements.enumList.querySelectorAll('.enum-row');
+    const targetRow = rows[this.activeColorRowIndex];
+    const targetCheckbox = targetRow.querySelector('.option-checkbox');
+
+    // Bulk Update Logic
+    const indicesToUpdate = [];
+
+    if (targetCheckbox.checked) {
+      // If target is selected, update ALL selected rows
+      rows.forEach((row, index) => {
+        if (row.querySelector('.option-checkbox').checked) {
+          indicesToUpdate.push(index);
+        }
+      });
+    } else {
+      // Update only this row
+      indicesToUpdate.push(this.activeColorRowIndex);
+    }
+
+    // Apply Updates
+    indicesToUpdate.forEach(index => {
+      // Update State
+      this.state.enumOptions[index].color = colorName;
+
+      // Update DOM
+      const row = rows[index];
+      const dot = row.querySelector('.color-dot');
+      dot.style.backgroundColor = COLORS[colorName];
+      dot.title = colorName;
+    });
+
+    this.closeColorPicker();
+    this.checkForChanges();
   },
 
   updateRowSelection: function (row, isChecked) {
