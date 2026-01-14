@@ -26,7 +26,11 @@ const App = {
     currentProjectGid: null,
     currentFieldGid: null,
     enumOptions: [],
-    allProjects: []
+    currentFieldGid: null,
+    enumOptions: [],
+    allProjects: [],
+    originalOptions: [],
+    hasUnsavedChanges: false
   },
 
   elements: {
@@ -69,12 +73,32 @@ const App = {
       e.preventDefault();
       this.toggleAllSelection(false);
     });
+
+    window.addEventListener('beforeunload', (event) => {
+      if (this.state.hasUnsavedChanges) {
+        event.preventDefault();
+        // Chrome requires this to show the prompt
+        event.returnValue = '';
+      }
+    });
   },
 
   switchView: function (viewName) {
     Object.values(this.elements.views).forEach(el => el.classList.add('hidden'));
     if (this.elements.views[viewName]) {
       this.elements.views[viewName].classList.remove('hidden');
+    }
+
+    // Toggle Right Panel visibility
+    const rightPanel = document.getElementById('right-panel');
+    const leftPanel = document.getElementById('left-panel');
+
+    if (viewName === 'empty') {
+      rightPanel.classList.add('hidden');
+      leftPanel.style.borderRight = 'none'; // distinct style for full width
+    } else {
+      rightPanel.classList.remove('hidden');
+      leftPanel.style.borderRight = ''; // restore border
     }
   },
 
@@ -328,6 +352,9 @@ const App = {
     this.callApi('customField', { custom_field_gid: fieldGid })
       .then(data => {
         this.state.enumOptions = data.enum_options || [];
+        this.state.originalOptions = JSON.parse(JSON.stringify(this.state.enumOptions));
+        this.state.hasUnsavedChanges = false;
+        this.updateApplyButton();
         this.renderEnumList(this.state.enumOptions);
         this.switchView('current');
       })
@@ -382,7 +409,12 @@ const App = {
       input.className = 'option-input';
       input.value = opt.name;
 
-      // Handle Click on Input
+      // Track changes
+      input.addEventListener('input', () => {
+        this.checkForChanges();
+      });
+
+      // Update lastCheckedIndex on focus to support starting a range from an edited row
       input.addEventListener('click', (e) => {
         // If Modifier key pressed, treat as Row Selection (allow bubble)
         if (e.shiftKey || e.metaKey || e.ctrlKey) {
@@ -413,6 +445,52 @@ const App = {
       });
       listContainer.appendChild(row);
     });
+  },
+
+  // Change Tracking
+  checkForChanges: function () {
+    // Collect current state from DOM
+    const currentOptions = [];
+    const rows = this.elements.enumList.querySelectorAll('.enum-row');
+
+    // We iterate over the *state* to preserve IDs, but get values from DOM
+    // Note: If we had drag-and-drop reordering, we'd need to trust DOM order.
+    // For now, assuming index mapping is stable.
+    this.state.enumOptions.forEach((opt, index) => {
+      const row = rows[index];
+      const input = row.querySelector('.option-input');
+      // const checkbox = row.querySelector('.option-checkbox'); // Is checkbox part of "changes"? 
+      // Assuming Checkbox is purely for SELECTION for bulk actions, NOT enabled/disabled state of the enum itself.
+      // IF checkbox meant 'enabled', we'd track it. 
+      // As per "Bulk Editor", selections are for applying actions.
+      // BUT, user might simply edit names one by one.
+
+      currentOptions.push({
+        gid: opt.gid,
+        name: input.value,
+        color: opt.color, // Color picking not yet implemented in UI, so use state
+        enabled: opt.enabled // Preserved from state
+      });
+    });
+
+    // Compare with Original
+    // Simple stringify comparison for deep equality of relevant fields
+    // We map only fields that *can* change in this UI (currently just Name)
+    const extractRelevant = (opts) => opts.map(o => ({ gid: o.gid, name: o.name }));
+
+    const originalJson = JSON.stringify(extractRelevant(this.state.originalOptions));
+    const currentJson = JSON.stringify(extractRelevant(currentOptions));
+
+    const hasChanges = originalJson !== currentJson;
+    this.state.hasUnsavedChanges = hasChanges;
+    this.updateApplyButton();
+  },
+
+  updateApplyButton: function () {
+    const btn = document.getElementById('btn-apply');
+    if (btn) {
+      btn.disabled = !this.state.hasUnsavedChanges;
+    }
   },
 
   handleRowClick: function (e, currentIndex, checkbox, isCheckboxClick = false) {

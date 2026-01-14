@@ -45,11 +45,11 @@
     </header>
 
     <div id="app-body">
-      <main id="left-panel">
+      <main id="left-panel" style="border-right: none;">
         <div id="state-empty" class="state-view">
           <div class="empty-message">
             <h2>Select a Custom Field</h2>
-            <p>Choose a workspace, project, and enum custom field to start editing.</p>
+            <p>To start editing, choose a workspace, project, and enum custom field in the header.</p>
           </div>
         </div>
 
@@ -73,10 +73,13 @@
         </div>
       </main>
 
-      <aside id="right-panel">
-        <!-- Action Column (Placeholder for now) -->
-        <div class="action-placeholder">
-          <!-- Content will be added later -->
+      <aside id="right-panel" class="hidden">
+        <div class="action-content">
+          <h3>Actions</h3>
+          <p class="action-description">Apply bulk changes to the options selected in the left pane.</p>
+          <div class="action-footer">
+            <button id="btn-apply" class="btn-primary" disabled>Apply changes</button>
+          </div>
         </div>
       </aside>
     </div>
