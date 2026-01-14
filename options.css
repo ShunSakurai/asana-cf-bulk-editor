@@ -92,6 +92,26 @@ body {
   flex: 1;
 }
 
+.label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.external-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.external-link:hover {
+  opacity: 1;
+  color: var(--primary-color);
+}
+
 .filter-group label {
   font-size: 11px;
   font-weight: 500;

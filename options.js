@@ -456,7 +456,15 @@ const App = {
     this.switchView('empty');
 
     if (projectGid) {
+      const link = document.getElementById('project-ext-link');
+      if (link) {
+        link.href = `https://app.asana.com/project/${projectGid}`;
+        link.classList.remove('hidden');
+      }
       this.fetchCustomFields(projectGid);
+    } else {
+      const link = document.getElementById('project-ext-link');
+      if (link) link.classList.add('hidden');
     }
   },
 
