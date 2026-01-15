@@ -478,6 +478,12 @@ body {
   color: var(--text-secondary);
 }
 
+#state-current {
+  max-height: calc(100vh - 150px); 
+  overflow-y: auto;
+  position: relative;
+}
+
 .empty-message h2 {
   font-size: 18px;
   font-weight: 500;
@@ -512,6 +518,10 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: sticky;
+  top: 0;
+  background-color: #fff;
+  z-index: 10;
 }
 
 .count-label {

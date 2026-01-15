@@ -171,7 +171,6 @@ const App = {
     if (!this.state.hasUnsavedChanges || this.state.hasValidationErrors) return;
 
     const btn = document.getElementById('btn-apply');
-    const originalText = btn.textContent;
     btn.disabled = true;
     btn.textContent = 'Updating Asana...';
 
@@ -796,12 +795,12 @@ const App = {
       });
 
       // Delete Button
-      const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'delete-btn';
-      deleteBtn.title = 'Delete option';
-      deleteBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+      const btnDelete = document.createElement('button');
+      btnDelete.className = 'delete-btn';
+      btnDelete.title = 'Delete option';
+      btnDelete.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
 
-      deleteBtn.addEventListener('click', (e) => {
+      btnDelete.addEventListener('click', (e) => {
         e.stopPropagation();
         this.handleDeleteOption(index);
       });
@@ -810,7 +809,7 @@ const App = {
       row.appendChild(checkbox);
       row.appendChild(colorDot);
       row.appendChild(input);
-      row.appendChild(deleteBtn);
+      row.appendChild(btnDelete);
 
       // Apply disabled state if option is disabled
       if (opt.enabled === false) {
@@ -872,7 +871,8 @@ const App = {
     const extractRelevant = (opts) => opts.map(o => ({
       gid: o.gid,
       name: o.name,
-      color: o.color
+      color: o.color,
+      enabled: o.enabled
     }));
 
     const originalJson = JSON.stringify(extractRelevant(this.state.originalOptions));
@@ -1377,14 +1377,6 @@ const App = {
       }
     });
 
-    // Trigger visual feedback on the left panel
-    const panel = document.getElementById('left-panel');
-    if (panel) {
-      panel.classList.remove('flash-success');
-      void panel.offsetWidth; // trigger reflow
-      panel.classList.add('flash-success');
-    }
-
     this.closeColorPicker();
     this.checkForChanges();
   },
@@ -1429,14 +1421,6 @@ const App = {
         dot.title = `Recolor (current: ${colorName})`;
       }
     });
-
-    // Visual Feedback
-    const panel = document.getElementById('left-panel');
-    if (panel) {
-      panel.classList.remove('flash-success');
-      void panel.offsetWidth;
-      panel.classList.add('flash-success');
-    }
 
     this.closeColorPicker();
     this.checkForChanges();
