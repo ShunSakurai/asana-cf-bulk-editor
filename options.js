@@ -978,7 +978,6 @@ const App = {
 
   sortOptions: function () {
     // 1. Capture current values from DOM (in case user edited names but didn't save)
-    // We need to ensure state.enumOptions is up to date with DOM text inputs
     const rows = this.elements.enumList.querySelectorAll('.enum-row');
     rows.forEach((row, i) => {
       this.state.enumOptions[i].name = row.querySelector('.option-input').value;
@@ -986,27 +985,27 @@ const App = {
 
     const checkboxes = this.elements.enumList.querySelectorAll('.option-checkbox');
     const selectedIndices = [];
+    const selectedGids = new Set();
     checkboxes.forEach((cb, i) => {
-      if (cb.checked) selectedIndices.push(i);
+      if (cb.checked) {
+        selectedIndices.push(i);
+        selectedGids.add(this.state.enumOptions[i].gid);
+      }
     });
 
     const total = this.state.enumOptions.length;
-    const isPartialSelection = selectedIndices.length > 1 && selectedIndices.length < total;
+    const isPartialSelection = selectedIndices.length > 0 && selectedIndices.length < total;
 
     if (isPartialSelection) {
       // Sort ONLY selected items, keeping ordering relative to their slots
       const selectedItems = selectedIndices.map(i => this.state.enumOptions[i]);
-
-      // Sort the extracted items
       selectedItems.sort((a, b) => a.name.localeCompare(b.name));
 
-      // Put them back into the slots
       selectedIndices.forEach((originalIndex, i) => {
         this.state.enumOptions[originalIndex] = selectedItems[i];
       });
-
     } else {
-      // Sort ALL
+      // Sort ALL (either nothing selected or everything selected)
       this.state.enumOptions.sort((a, b) => a.name.localeCompare(b.name));
     }
 
@@ -1020,9 +1019,20 @@ const App = {
 
     // Re-render
     this.renderEnumList(this.state.enumOptions);
-    this.updateSortButton(); // Reset button text if selection clears (renderEnumList clears selection?)
-    // Actually renderEnumList clears selection because it rebuilds DOM.
-    // We might want to preserve selection, but for now clearing is safe.
+
+    // Restore Selection
+    if (selectedGids.size > 0) {
+      const newRows = this.elements.enumList.querySelectorAll('.enum-row');
+      const newCheckboxes = this.elements.enumList.querySelectorAll('.option-checkbox');
+      this.state.enumOptions.forEach((opt, i) => {
+        if (selectedGids.has(opt.gid)) {
+          newCheckboxes[i].checked = true;
+          this.updateRowSelection(newRows[i], true);
+        }
+      });
+    }
+
+    this.updateSortButton();
     this.checkForChanges();
   },
 
