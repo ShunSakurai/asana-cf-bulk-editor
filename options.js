@@ -582,7 +582,8 @@ const App = {
     // https://developers.asana.com/reference/getcustomfield
     this.callApi('customField', { custom_field_gid: fieldGid })
       .then(data => {
-        this.state.enumOptions = data.enum_options || [];
+        const allOptions = data.enum_options || [];
+        this.state.enumOptions = allOptions.filter(opt => opt.enabled !== false);
         this.state.originalOptions = JSON.parse(JSON.stringify(this.state.enumOptions));
         this.state.hasUnsavedChanges = false;
         this.updateApplyButton();
