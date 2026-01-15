@@ -268,6 +268,19 @@ Asana.ServerModel = {
   },
 
   /**
+   * Requests a specific project.
+   *
+   * @param callback {Function(project)} Callback on success.
+   *     project {dict}
+   */
+  project: function (callback, parameters) {
+    Asana.ApiBridge.request(
+      'GET', '/projects/' + parameters.project_gid,
+      {}, callback, {}
+    );
+  },
+
+  /**
    * Requests the custom field settings for a project.
    *
    * @param callback {Function(settings)} Callback on success.
@@ -466,7 +479,11 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
 
 // Open options page on click since we disabled default_popup
 chrome.action.onClicked.addListener(function (tab) {
-  chrome.runtime.openOptionsPage();
+  let url = 'options.html';
+  if (tab.url && tab.url.includes('app.asana.com')) {
+    url += '?sourceUrl=' + encodeURIComponent(tab.url);
+  }
+  chrome.tabs.create({ url: url });
 });
 
 Asana.ServerModel.startPrimingCache();
