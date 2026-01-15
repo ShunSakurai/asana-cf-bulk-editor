@@ -120,6 +120,12 @@ const App = {
       this.sortOptions();
     });
 
+    // Recolor Button
+    document.getElementById('btn-bulk-recolor').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.openColorPicker(e);
+    });
+
     window.addEventListener('beforeunload', (event) => {
       if (this.state.hasUnsavedChanges) {
         event.preventDefault();
@@ -583,6 +589,8 @@ const App = {
         this.state.originalOptions = JSON.parse(JSON.stringify(this.state.enumOptions));
         this.state.hasUnsavedChanges = false;
         this.updateApplyButton();
+        this.updateSortButton();
+        this.updateRecolorButton();
         this.renderEnumList(this.state.enumOptions);
         this.switchView('current');
       })
@@ -709,6 +717,18 @@ const App = {
       });
       listContainer.appendChild(row);
     });
+  },
+
+  // Selection Helpers
+  getSelectedIndices: function () {
+    const checkboxes = this.elements.enumList.querySelectorAll('.option-checkbox');
+    const selectedIndices = [];
+    checkboxes.forEach((cb, i) => {
+      if (cb.checked) {
+        selectedIndices.push(i);
+      }
+    });
+    return selectedIndices;
   },
 
   // Change Tracking
@@ -952,6 +972,7 @@ const App = {
     }
 
     this.updateSortButton();
+    this.updateRecolorButton();
   },
 
   updateSortButton: function () {
@@ -961,14 +982,32 @@ const App = {
     const desc = btn.querySelector('.card-desc');
 
     // Check how many selected
-    const checkboxes = this.elements.enumList.querySelectorAll('.option-checkbox:checked');
+    const selectedIndices = this.getSelectedIndices();
     const total = this.state.enumOptions.length;
-    const selectedCount = checkboxes.length;
+    const selectedCount = selectedIndices.length;
 
     if (selectedCount > 1 && selectedCount < total) {
       if (desc) desc.textContent = 'Sort selected options alphabetically';
     } else {
       if (desc) desc.textContent = 'Sort all options alphabetically';
+    }
+  },
+
+  updateRecolorButton: function () {
+    const btn = document.getElementById('btn-bulk-recolor');
+    if (!btn) return;
+
+    const desc = btn.querySelector('.card-desc');
+
+    // Check how many selected
+    const selectedIndices = this.getSelectedIndices();
+    const total = this.state.enumOptions.length;
+    const selectedCount = selectedIndices.length;
+
+    if (selectedCount > 0 && selectedCount < total) {
+      if (desc) desc.textContent = 'Assign color to selected options';
+    } else {
+      if (desc) desc.textContent = 'Assign color to all options';
     }
   },
 
@@ -979,15 +1018,8 @@ const App = {
       this.state.enumOptions[i].name = row.querySelector('.option-input').value;
     });
 
-    const checkboxes = this.elements.enumList.querySelectorAll('.option-checkbox');
-    const selectedIndices = [];
-    const selectedGids = new Set();
-    checkboxes.forEach((cb, i) => {
-      if (cb.checked) {
-        selectedIndices.push(i);
-        selectedGids.add(this.state.enumOptions[i].gid);
-      }
-    });
+    const selectedIndices = this.getSelectedIndices();
+    const selectedGids = new Set(selectedIndices.map(i => this.state.enumOptions[i].gid));
 
     const total = this.state.enumOptions.length;
     const isPartialSelection = selectedIndices.length > 0 && selectedIndices.length < total;
@@ -1058,17 +1090,19 @@ const App = {
     });
   },
 
-  openColorPicker: function (e, rowIndex) {
+  openColorPicker: function (e, rowIndex = null) {
     this.activeColorRowIndex = rowIndex;
     const picker = document.getElementById('color-picker');
-    const target = e.target;
+    const target = e.currentTarget;
+
+    // Unhide first so dimensions are available if needed
+    picker.classList.remove('hidden');
+
     const rect = target.getBoundingClientRect();
 
     // Position popover
     picker.style.top = (rect.bottom + window.scrollY + 4) + 'px';
     picker.style.left = (rect.left + window.scrollX) + 'px';
-
-    picker.classList.remove('hidden');
   },
 
   closeColorPicker: function () {
@@ -1077,25 +1111,30 @@ const App = {
   },
 
   selectColor: function (colorName) {
-    if (this.activeColorRowIndex === null) return;
-
     const rows = this.elements.enumList.querySelectorAll('.enum-row');
-    const targetRow = rows[this.activeColorRowIndex];
-    const targetCheckbox = targetRow.querySelector('.option-checkbox');
+    let indicesToUpdate = [];
 
-    // Bulk Update Logic
-    const indicesToUpdate = [];
+    if (this.activeColorRowIndex !== null) {
+      // TRIGGERED FROM A ROW
+      const targetCheckbox = rows[this.activeColorRowIndex].querySelector('.option-checkbox');
 
-    if (targetCheckbox.checked) {
-      // If target is selected, update ALL selected rows
-      rows.forEach((row, index) => {
-        if (row.querySelector('.option-checkbox').checked) {
-          indicesToUpdate.push(index);
-        }
-      });
+      if (targetCheckbox.checked) {
+        // If target is selected, update ALL selected rows
+        indicesToUpdate = this.getSelectedIndices();
+      } else {
+        // Update only this row
+        indicesToUpdate = [this.activeColorRowIndex];
+      }
     } else {
-      // Update only this row
-      indicesToUpdate.push(this.activeColorRowIndex);
+      // TRIGGERED FROM BULK RECOLOR CARD
+      const selectedIndices = this.getSelectedIndices();
+      if (selectedIndices.length > 0) {
+        // Update only selected
+        indicesToUpdate = selectedIndices;
+      } else {
+        // Update ALL
+        indicesToUpdate = this.state.enumOptions.map((_, i) => i);
+      }
     }
 
     // Apply Updates
@@ -1103,12 +1142,22 @@ const App = {
       // Update State
       this.state.enumOptions[index].color = colorName;
 
-      // Update DOM
+      // Update DOM (if visible)
       const row = rows[index];
-      const dot = row.querySelector('.color-dot');
-      dot.style.backgroundColor = COLORS[colorName];
-      dot.title = `Recolor (current: ${colorName})`;
+      if (row) {
+        const dot = row.querySelector('.color-dot');
+        dot.style.backgroundColor = COLORS[colorName];
+        dot.title = `Recolor (current: ${colorName})`;
+      }
     });
+
+    // Trigger visual feedback on the left panel
+    const panel = document.getElementById('left-panel');
+    if (panel) {
+      panel.classList.remove('flash-success');
+      void panel.offsetWidth; // trigger reflow
+      panel.classList.add('flash-success');
+    }
 
     this.closeColorPicker();
     this.checkForChanges();
@@ -1130,6 +1179,9 @@ const App = {
       checkboxes[index].checked = shouldSelect;
       this.updateRowSelection(row, shouldSelect);
     });
+
+    this.updateSortButton();
+    this.updateRecolorButton();
   },
 };
 
