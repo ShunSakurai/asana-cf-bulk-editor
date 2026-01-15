@@ -54,15 +54,15 @@ body {
 #app-header {
   background-color: var(--bg-panel);
   border-bottom: 1px solid var(--border-light);
-  padding: 12px 24px;
+  padding: 20px 32px;
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 32px;
   flex-shrink: 0;
 }
 
 .logo-area h1 {
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 600;
   margin: 0;
   color: var(--text-primary);
@@ -113,18 +113,19 @@ body {
 }
 
 .filter-group label {
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .select-wrapper select {
   width: 100%;
-  padding: 6px 8px;
+  padding: 8px 12px;
   border: 1px solid #cfd1d5;
-  border-radius: 4px;
-  font-size: 13px;
+  border-radius: 6px;
+  font-size: 14px;
   color: var(--text-primary);
   background: white;
   outline: none;
@@ -146,6 +147,11 @@ body {
   overflow: hidden;
 }
 
+.external-link svg {
+  width: 14px;
+  height: 14px;
+}
+
 /* Combobox */
 .combobox-wrapper {
   position: relative;
@@ -154,10 +160,10 @@ body {
 
 #project-input {
   width: 100%;
-  padding: 6px 8px;
+  padding: 8px 12px;
   border: 1px solid #cfd1d5;
-  border-radius: 4px;
-  font-size: 13px;
+  border-radius: 6px;
+  font-size: 14px;
   color: var(--text-primary);
   background: white;
   outline: none;
@@ -262,10 +268,10 @@ body {
   background-color: var(--primary-color);
   color: white;
   border: none;
-  border-radius: 4px;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 500;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s;
   width: 100%;
@@ -454,7 +460,7 @@ body {
 
 /* Enum List */
 .list-header {
-  padding: 16px 24px;
+  padding: 20px 24px;
   border-bottom: 1px solid var(--border-light);
   display: flex;
   justify-content: space-between;
@@ -462,13 +468,13 @@ body {
 }
 
 .count-label {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-secondary);
 }
 
 .selection-controls {
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .selection-controls a {
@@ -566,6 +572,8 @@ body {
 
 .action-status.hidden {
   opacity: 0;
+  display: block !important;
+  visibility: hidden;
 }
 
 /* Status Bar */
@@ -616,4 +624,23 @@ body {
 .color-option:hover {
   transform: scale(1.2);
   border-color: rgba(0, 0, 0, 0.2);
+}
+
+/* Animations */
+@keyframes flash-success {
+  0% {
+    background-color: transparent;
+  }
+
+  30% {
+    background-color: rgba(65, 155, 249, 0.15);
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+.flash-success {
+  animation: flash-success 0.8s ease-out;
 }

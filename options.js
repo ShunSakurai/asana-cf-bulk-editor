@@ -242,7 +242,7 @@ const App = {
 
         // Show Status
         const status = document.getElementById('action-status');
-        status.textContent = 'Changes saved successfully.';
+        status.textContent = 'Updated Asana successfully.';
         status.className = 'action-status success';
         status.classList.remove('hidden');
 
@@ -253,9 +253,9 @@ const App = {
         btn.textContent = 'Apply changes';
       })
       .catch(err => {
-        console.error('Save failed', err);
+        console.error('Failed to update Asana', err);
         const status = document.getElementById('action-status');
-        status.textContent = 'Failed to save: ' + (err.message || 'Unknown error');
+        status.textContent = 'Failed to update Asana: ' + (err.message || 'Unknown error');
         status.className = 'action-status error';
         status.classList.remove('hidden');
 
@@ -1008,6 +1008,14 @@ const App = {
     } else {
       // Sort ALL
       this.state.enumOptions.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    // Trigger visual feedback on the left panel
+    const panel = document.getElementById('left-panel');
+    if (panel) {
+      panel.classList.remove('flash-success');
+      void panel.offsetWidth; // trigger reflow
+      panel.classList.add('flash-success');
     }
 
     // Re-render
