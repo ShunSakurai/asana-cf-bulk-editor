@@ -1377,14 +1377,6 @@ const App = {
       }
     });
 
-    // Trigger visual feedback on the left panel
-    const panel = document.getElementById('left-panel');
-    if (panel) {
-      panel.classList.remove('flash-success');
-      void panel.offsetWidth; // trigger reflow
-      panel.classList.add('flash-success');
-    }
-
     this.closeColorPicker();
     this.checkForChanges();
   },
@@ -1429,14 +1421,6 @@ const App = {
         dot.title = `Recolor (current: ${colorName})`;
       }
     });
-
-    // Visual Feedback
-    const panel = document.getElementById('left-panel');
-    if (panel) {
-      panel.classList.remove('flash-success');
-      void panel.offsetWidth;
-      panel.classList.add('flash-success');
-    }
 
     this.closeColorPicker();
     this.checkForChanges();
