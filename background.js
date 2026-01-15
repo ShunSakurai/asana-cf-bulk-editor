@@ -416,7 +416,13 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
 chrome.action.onClicked.addListener(function (tab) {
   let url = 'options.html';
   if (tab.url && tab.url.includes('app.asana.com')) {
-    url += '?sourceUrl=' + encodeURIComponent(tab.url);
+    const projectRegex = /\/(?:0|project)\/(\d+)/;
+    const match = tab.url.match(projectRegex);
+    if (match && match[1]) {
+      url += '?sourceProject=' + match[1];
+    } else {
+      url += '?sourceUrl=' + encodeURIComponent(tab.url);
+    }
   }
   chrome.tabs.create({ url: url });
 });

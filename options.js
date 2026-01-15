@@ -42,7 +42,8 @@ const App = {
     enumOptions: [],
     allProjects: [],
     originalOptions: [],
-    hasUnsavedChanges: false
+    hasUnsavedChanges: false,
+    hasValidationErrors: false
   },
 
   elements: {
@@ -79,32 +80,37 @@ const App = {
   detectContext: function () {
     return new Promise((resolve) => {
       const urlParams = new URLSearchParams(window.location.search);
+      const sourceProject = urlParams.get('sourceProject');
       const sourceUrl = urlParams.get('sourceUrl');
-      console.log('sourceUrl', sourceUrl);
+      console.log('Context info:', { sourceProject, sourceUrl });
 
-      if (sourceUrl && sourceUrl.startsWith('https://app.asana.com/')) {
+      let projectGid = sourceProject;
+
+      if (!projectGid && sourceUrl && sourceUrl.startsWith('https://app.asana.com/')) {
         // Supporting both standard /0/{id} and /project/{id} patterns anywhere in the path
         const regex = /\/(?:0|project)\/(\d+)/;
         const match = sourceUrl.match(regex);
-
         if (match && match[1]) {
-          const projectGid = match[1];
-          console.log('Context detected from URL param:', projectGid);
-
-          // Fetch project details to get Workspace and verify it exists
-          this.callApi('project', { project_gid: projectGid })
-            .then(project => {
-              resolve({
-                workspaceGid: project.workspace.gid,
-                project: project
-              });
-            })
-            .catch(err => {
-              console.warn('Failed to resolve project from URL param', err);
-              resolve(null);
-            });
-          return;
+          projectGid = match[1];
         }
+      }
+
+      if (projectGid) {
+        console.log('Context project detected:', projectGid);
+
+        // Fetch project details to get Workspace and verify it exists
+        this.callApi('project', { project_gid: projectGid })
+          .then(project => {
+            resolve({
+              workspaceGid: project.workspace.gid,
+              project: project
+            });
+          })
+          .catch(err => {
+            console.warn('Failed to resolve project from URL param', err);
+            resolve(null);
+          });
+        return;
       }
       resolve(null);
     });
@@ -764,24 +770,21 @@ const App = {
     // For now, assuming index mapping is stable.
     this.state.enumOptions.forEach((opt, index) => {
       const row = rows[index];
-      const input = row.querySelector('.option-input');
-      // const checkbox = row.querySelector('.option-checkbox'); // Is checkbox part of "changes"? 
-      // Assuming Checkbox is purely for SELECTION for bulk actions, NOT enabled/disabled state of the enum itself.
-      // IF checkbox meant 'enabled', we'd track it. 
-      // As per "Bulk Editor", selections are for applying actions.
-      // BUT, user might simply edit names one by one.
+      if (row) {
+        const input = row.querySelector('.option-input');
+        // Update state name with current DOM value
+        opt.name = input.value;
+      }
 
       currentOptions.push({
         gid: opt.gid,
-        name: input.value,
-        color: opt.color, // Color is now updated in state by selectColor
+        name: opt.name,
+        color: opt.color,
         enabled: opt.enabled
       });
     });
 
     // Compare with Original
-    // Simple stringify comparison for deep equality of relevant fields
-    // We map only fields that *can* change in this UI (currently just Name)
     const extractRelevant = (opts) => opts.map(o => ({
       gid: o.gid,
       name: o.name,
@@ -793,13 +796,36 @@ const App = {
 
     const hasChanges = originalJson !== currentJson;
     this.state.hasUnsavedChanges = hasChanges;
+
+    // Duplicate Check
+    const nameSet = new Set();
+    let hasDuplicates = false;
+    for (const opt of currentOptions) {
+      if (nameSet.has(opt.name)) {
+        hasDuplicates = true;
+        break;
+      }
+      nameSet.add(opt.name);
+    }
+
+    this.state.hasValidationErrors = hasDuplicates;
+    const status = document.getElementById('action-status');
+
+    if (hasDuplicates) {
+      status.textContent = 'Options cannot have duplicate names';
+      status.className = 'action-status error';
+      status.classList.remove('hidden');
+    } else if (status.textContent === 'Options cannot have duplicate names') {
+      status.classList.add('hidden');
+    }
+
     this.updateApplyButton();
   },
 
   updateApplyButton: function () {
     const btn = document.getElementById('btn-apply');
     if (btn) {
-      btn.disabled = !this.state.hasUnsavedChanges;
+      btn.disabled = !this.state.hasUnsavedChanges || this.state.hasValidationErrors;
     }
   },
 
@@ -1448,8 +1474,19 @@ const App = {
         matchCount++;
       }
 
-      // If we were searching ALL, update selection to matches
-      if (selectedIndicesBefore.length === 0) {
+      if (selectedIndicesBefore.length > 0) {
+        // If we are searching within a selection, UNSELECT non-matching items
+        // Only process items that were originally selected
+        if (selectedIndicesBefore.includes(index)) {
+          if (!isMatch) {
+            checkboxes[index].checked = false;
+            this.updateRowSelection(rows[index], false);
+          }
+          // If it matches, it remains selected (no change needed here)
+        }
+        // If it was not originally selected, its state should not change
+      } else {
+        // If we were searching ALL, SELECT matching items and UNSELECT non-matching
         checkboxes[index].checked = isMatch;
         this.updateRowSelection(rows[index], isMatch);
       }
