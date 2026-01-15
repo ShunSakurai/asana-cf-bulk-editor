@@ -301,8 +301,35 @@ const App = {
         }, Promise.resolve());
       })
       .then(() => {
+        // Phase 5: Deletions (disable options) - done LAST to avoid affecting reordering
+        const deletions = [];
+        this.state.enumOptions.forEach((currentOpt) => {
+          if (!isNewGid(currentOpt.gid)) {
+            const originalOpt = this.state.originalOptions.find(o => o.gid === currentOpt.gid);
+            if (originalOpt && originalOpt.enabled !== false && currentOpt.enabled === false) {
+              deletions.push(currentOpt);
+            }
+          }
+        });
+
+        // Execute deletions sequentially with 40ms delays
+        return deletions.reduce((promise, deletion, index) => {
+          return promise.then(() => {
+            const delay = index > 0 || updates.length > 0 || creations.length > 0
+              ? new Promise(resolve => setTimeout(resolve, 40))
+              : Promise.resolve();
+            return delay.then(() => {
+              return this.callApi('updateEnumOption', {
+                enum_option_gid: deletion.gid,
+                enabled: false
+              });
+            });
+          });
+        }, Promise.resolve());
+      })
+      .then(() => {
         // All Done
-        console.log('All updates and moves successful');
+        console.log('All updates, moves, and deletions successful');
         this.state.originalOptions = JSON.parse(JSON.stringify(this.state.enumOptions));
         this.state.hasUnsavedChanges = false;
         this.updateApplyButton();
@@ -315,6 +342,8 @@ const App = {
 
         setTimeout(() => {
           status.classList.add('hidden');
+          const disabledRows = this.elements.enumList.querySelectorAll('.enum-row.disabled');
+          disabledRows.forEach(row => row.remove());
         }, 3000);
 
         btn.textContent = 'Apply changes';
@@ -766,10 +795,27 @@ const App = {
         }
       });
 
+      // Delete Button
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'delete-btn';
+      deleteBtn.title = 'Delete option';
+      deleteBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+
+      deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.handleDeleteOption(index);
+      });
+
       row.appendChild(handle);
       row.appendChild(checkbox);
       row.appendChild(colorDot);
       row.appendChild(input);
+      row.appendChild(deleteBtn);
+
+      // Apply disabled state if option is disabled
+      if (opt.enabled === false) {
+        row.classList.add('disabled');
+      }
 
       // Row Click Handler
       row.addEventListener('click', (e) => {
@@ -1096,6 +1142,34 @@ const App = {
     } else {
       if (desc) desc.textContent = 'Assign color to all options';
     }
+  },
+
+  handleDeleteOption: function (index) {
+    const row = this.elements.enumList.children[index];
+    const checkbox = row?.querySelector('.option-checkbox');
+
+    // Check if the clicked row is selected
+    const isSelected = checkbox?.checked;
+
+    if (isSelected) {
+      // Delete all selected rows
+      const selectedIndices = this.getSelectedIndices();
+      selectedIndices.forEach(idx => {
+        this.state.enumOptions[idx].enabled = false;
+        const targetRow = this.elements.enumList.children[idx];
+        if (targetRow) {
+          targetRow.classList.add('disabled');
+        }
+      });
+    } else {
+      // Delete only this row
+      this.state.enumOptions[index].enabled = false;
+      if (row) {
+        row.classList.add('disabled');
+      }
+    }
+
+    this.checkForChanges();
   },
 
   updateFindReplaceButton: function () {

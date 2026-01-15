@@ -315,11 +315,13 @@ Asana.ServerModel = {
    *     enum_option_gid {String} ID of the enum option to update.
    *     name {String?} New name.
    *     color {String?} New color.
+   *     enabled {Boolean?} Whether the option is enabled.
    */
   updateEnumOption: function (callback, parameters) {
     const data = {};
     if (parameters.name) data.name = parameters.name;
     if (parameters.color) data.color = parameters.color;
+    if (parameters.enabled !== undefined) data.enabled = parameters.enabled;
     // Asana API: PUT /enum_options/{gid}
     // https://developers.asana.com/reference/updateenumoption
     Asana.ApiBridge.request(

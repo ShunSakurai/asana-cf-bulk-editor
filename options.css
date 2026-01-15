@@ -218,7 +218,6 @@ body {
   color: var(--primary-color);
 }
 
-
 #left-panel {
   flex: 1;
   border-right: 1px solid var(--border-light);
@@ -250,8 +249,6 @@ body {
   font-weight: 600;
   color: var(--text-primary);
 }
-
-
 
 /* Buttons */
 .btn-primary {
@@ -297,6 +294,50 @@ body {
 .enum-row.selected .drag-handle,
 .enum-row:focus-within .drag-handle {
   opacity: 1;
+}
+
+/* Delete Button */
+.delete-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: opacity 0.2s;
+  padding: 0;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.delete-btn:hover {
+  color: var(--text-primary);
+}
+
+.enum-row:hover .delete-btn,
+.enum-row.selected .delete-btn,
+.enum-row:focus-within .delete-btn {
+  opacity: 1;
+}
+
+/* Disabled/Deleted Rows */
+.enum-row.disabled .option-input {
+  opacity: 0.5;
+  color: var(--text-secondary);
+  background-image: linear-gradient(transparent calc(50% - 0.5px), currentColor calc(50% - 0.5px), currentColor calc(50% + 0.5px), transparent calc(50% + 0.5px));
+}
+
+.enum-row.disabled .color-dot {
+  opacity: 0.4;
+}
+
+.enum-row.disabled .delete-btn {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 .enum-row.dragging {
@@ -600,8 +641,6 @@ body {
   min-width: 200px;
 }
 
-
-
 .color-grid-inner {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
@@ -818,8 +857,6 @@ body {
   color: var(--text-secondary);
 }
 
-
-
 .add-options-popover textarea {
   width: 100%;
   padding: 10px;
@@ -835,8 +872,6 @@ body {
 .add-options-popover textarea:focus {
   border-color: var(--primary-color);
 }
-
-
 
 .add-options-popover .color-option.selected {
   transform: scale(1.3);
