@@ -251,11 +251,7 @@ body {
   color: var(--text-primary);
 }
 
-.action-footer {
-  margin-top: auto;
-  padding-top: 24px;
-  border-top: 1px solid var(--border-light);
-}
+
 
 /* Buttons */
 .btn-primary {
@@ -604,15 +600,7 @@ body {
   min-width: 200px;
 }
 
-.picker-section-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--border-light);
-}
+
 
 .color-grid-inner {
   display: grid;
@@ -691,8 +679,9 @@ body {
   animation: flash-success 0.8s ease-out;
 }
 
-/* Find & Replace Popover */
-.find-replace-popover {
+/* Popovers */
+.find-replace-popover,
+.add-options-popover {
   position: absolute;
   background: white;
   border: 1px solid var(--border-light);
@@ -700,7 +689,14 @@ body {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   padding: 16px;
   z-index: 2000;
+}
+
+.find-replace-popover {
   width: 280px;
+}
+
+.add-options-popover {
+  width: 320px;
 }
 
 .popover-content {
@@ -715,12 +711,18 @@ body {
   gap: 6px;
 }
 
-.input-group label {
+.input-group label,
+.picker-section-title {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.picker-section-title {
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .action-row {
@@ -771,7 +773,8 @@ body {
   justify-content: flex-end;
 }
 
-.find-replace-popover button {
+.find-replace-popover button,
+.add-options-popover button {
   padding: 6px 16px;
   font-size: 13px;
   font-weight: 500;
@@ -807,4 +810,36 @@ body {
   color: var(--text-secondary);
   min-height: 20px;
   transition: opacity 0.3s;
+}
+
+.add-options-status {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+
+
+.add-options-popover textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: var(--font-family);
+  resize: vertical;
+  min-height: 100px;
+  outline: none;
+}
+
+.add-options-popover textarea:focus {
+  border-color: var(--primary-color);
+}
+
+
+
+.add-options-popover .color-option.selected {
+  transform: scale(1.3);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px white, 0 0 0 4px var(--primary-color);
 }

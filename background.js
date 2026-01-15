@@ -327,6 +327,21 @@ Asana.ServerModel = {
       data, callback, {}
     );
   },
+  /**
+   * Creates a new enum option.
+   */
+  createEnumOption: function (callback, parameters) {
+    const data = {
+      name: parameters.name,
+      color: parameters.color || 'none'
+    };
+    // Asana API: POST /custom_fields/{custom_field_gid}/enum_options
+    // https://developers.asana.com/reference/createenumoptionforcustomfield
+    Asana.ApiBridge.request(
+      'POST', '/custom_fields/' + parameters.custom_field_gid + '/enum_options',
+      data, callback, {}
+    );
+  },
 
   /**
    * Reorders an enum option.

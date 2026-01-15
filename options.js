@@ -22,6 +22,9 @@ const COLOR_MAP = COLORS.reduce((acc, { name, hex }) => {
   return acc;
 }, {});
 
+// Helper to determine if a GID refers to a new object
+const isNewGid = (gid) => typeof gid === 'string' && gid.startsWith('new-');
+
 const PATTERNS = {
   'Color palette': COLORS.map(c => c.name),
   'Asana default': [
@@ -70,6 +73,7 @@ const App = {
     this.initTypeahead();
     this.initColorPicker();
     this.initFindReplace();
+    this.initAddOptions();
 
     // Attempt to detect context from open tabs
     this.detectContext().then(context => {
@@ -164,50 +168,85 @@ const App = {
   // ... (switchView, callApi, fetchWorkspaces...)
 
   saveChanges: function () {
-    if (!this.state.hasUnsavedChanges) return;
+    if (!this.state.hasUnsavedChanges || this.state.hasValidationErrors) return;
 
     const btn = document.getElementById('btn-apply');
     const originalText = btn.textContent;
     btn.disabled = true;
     btn.textContent = 'Updating Asana...';
 
-    // Phase 1: Update Properties (Name/Color)
+    // Phase 1: Separate creations and updates
     const updates = [];
-    this.state.enumOptions.forEach((currentOpt) => {
-      const originalOpt = this.state.originalOptions.find(o => o.gid === currentOpt.gid);
-      if (originalOpt) {
-        const hasNameChange = currentOpt.name !== originalOpt.name;
-        const hasColorChange = currentOpt.color !== originalOpt.color;
+    const creations = [];
 
-        if (hasNameChange || hasColorChange) {
-          updates.push({
-            gid: currentOpt.gid,
-            name: hasNameChange ? currentOpt.name : undefined,
-            color: hasColorChange ? currentOpt.color : undefined
-          });
+    this.state.enumOptions.forEach((currentOpt) => {
+      if (isNewGid(currentOpt.gid)) {
+        creations.push(currentOpt);
+      } else {
+        const originalOpt = this.state.originalOptions.find(o => o.gid === currentOpt.gid);
+        if (originalOpt) {
+          const hasNameChange = currentOpt.name !== originalOpt.name;
+          const hasColorChange = currentOpt.color !== originalOpt.color;
+
+          if (hasNameChange || hasColorChange) {
+            updates.push({
+              gid: currentOpt.gid,
+              name: hasNameChange ? currentOpt.name : undefined,
+              color: hasColorChange ? currentOpt.color : undefined
+            });
+          }
         }
       }
     });
 
-    // Run Updates Parallel
-    const updatePromises = updates.map(u => this.callApi('updateEnumOption', {
-      enum_option_gid: u.gid,
-      name: u.name,
-      color: u.color
-    }));
+    // Phase 2: Create new options FIRST (sequentially with delays to respect rate limit)
+    // Rate limit: 1500 req/min = minimum 40ms between requests
+    const createSequentially = creations.reduce((promise, creation, index) => {
+      return promise.then((results) => {
+        // Wait 40ms before each request (except the first)
+        const delay = index > 0 ? new Promise(resolve => setTimeout(resolve, 40)) : Promise.resolve();
+        return delay.then(() => {
+          return this.callApi('createEnumOption', {
+            custom_field_gid: this.state.currentFieldGid,
+            name: creation.name,
+            color: creation.color
+          }).then(result => {
+            creation.gid = result.gid; // callApi already unwraps response.data
+            return [...results, result];
+          });
+        });
+      });
+    }, Promise.resolve([]));
 
-    // Phase 2: Reordering (Sequential)
-    Promise.all(updatePromises)
+    createSequentially
       .then(() => {
-        // Calculate Moves
+        // Phase 3: Update existing options (sequentially with delays)
+        return updates.reduce((promise, update, index) => {
+          return promise.then(() => {
+            // Wait 40ms before each request (except the first)
+            const delay = index > 0 || creations.length > 0
+              ? new Promise(resolve => setTimeout(resolve, 40))
+              : Promise.resolve();
+            return delay.then(() => {
+              return this.callApi('updateEnumOption', {
+                enum_option_gid: update.gid,
+                name: update.name,
+                color: update.color
+              });
+            });
+          });
+        }, Promise.resolve());
+      })
+      .then(() => {
+        // Phase 4: Reordering (now that all options exist with real GIDs)
         const moves = [];
         // We simulate the server state to determine minimal moves
-        // Only extract GIDs for simulation
-        const currentServerState = this.state.originalOptions.map(o => o.gid);
+        // Start with original options, then add newly created ones at the end
+        const currentServerState = [
+          ...this.state.originalOptions.map(o => o.gid),
+          ...creations.map(c => c.gid)
+        ];
         const targetState = this.state.enumOptions.map(o => o.gid);
-
-        // We need to verify that we are permuting the SAME set of items. 
-        // Logic assumes no additions/deletions in this UI yet.
 
         targetState.forEach((gid, index) => {
           // Identify who should be before this item
@@ -224,10 +263,7 @@ const App = {
             };
 
             if (desiredPrev === null) {
-              // Determine who is currently first to insert before
-              // If currentIndex is 0, we wouldn't be here (desiredPrev===currentPrev===null)
-              // We want to move this item to the very top.
-              // Insert before the item that is currently at index 0
+              // Move to the very top - insert before the item currently at index 0
               moveParams.before = currentServerState[0];
             } else {
               moveParams.after = desiredPrev;
@@ -246,19 +282,21 @@ const App = {
           }
         });
 
-        // Execute Moves Sequentially
-        return moves.reduce((promise, move) => {
+        // Execute Moves Sequentially with 40ms delays
+        return moves.reduce((promise, move, index) => {
           return promise.then(() => {
-            // Add a small delay to ensure stability and respect rate limits
-            return new Promise(resolve => setTimeout(resolve, 10))
-              .then(() => {
-                return this.callApi('insertEnumOption', {
-                  custom_field_gid: this.state.currentFieldGid,
-                  enum_option_gid: move.gid,
-                  before_enum_option: move.before,
-                  after_enum_option: move.after
-                });
+            // Wait 40ms before each request (except potentially the first)
+            const delay = index > 0 || updates.length > 0 || creations.length > 0
+              ? new Promise(resolve => setTimeout(resolve, 40))
+              : Promise.resolve();
+            return delay.then(() => {
+              return this.callApi('insertEnumOption', {
+                custom_field_gid: this.state.currentFieldGid,
+                enum_option_gid: move.gid,
+                before_enum_option: move.before,
+                after_enum_option: move.after
               });
+            });
           });
         }, Promise.resolve());
       })
@@ -1205,6 +1243,10 @@ const App = {
     const picker = document.getElementById('color-picker');
     const target = e.currentTarget;
 
+    // Close others
+    this.closeFindReplacePicker();
+    this.closeAddOptionsPopover();
+
     // Unhide first so dimensions are available if needed
     picker.classList.remove('hidden');
 
@@ -1394,6 +1436,10 @@ const App = {
     const target = e.currentTarget;
     const rect = target.getBoundingClientRect();
 
+    // Close others
+    this.closeColorPicker();
+    this.closeAddOptionsPopover();
+
     // Clear status
     this.updateFindReplaceStatus('');
 
@@ -1413,6 +1459,170 @@ const App = {
         helper.classList.add('hidden');
       }
     }
+  },
+
+  // Add Options Logic
+  initAddOptions: function () {
+    const btnOpen = document.getElementById('btn-add-options');
+    const btnDoAdd = document.getElementById('btn-do-add');
+    const colorGrid = document.getElementById('add-options-color-grid');
+
+    if (btnOpen) {
+      btnOpen.addEventListener('click', (e) => this.openAddOptionsPopover(e));
+    }
+    if (btnDoAdd) {
+      btnDoAdd.addEventListener('click', () => this.handleAddOptions());
+    }
+
+    // Render Colors for Add Options
+    COLORS.forEach(({ name, hex }) => {
+      const dot = document.createElement('div');
+      dot.className = 'color-option';
+      if (name === 'none') dot.classList.add('selected'); // default
+      dot.style.backgroundColor = hex;
+      dot.title = name;
+      dot.dataset.color = name;
+      dot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        colorGrid.querySelectorAll('.color-option').forEach(d => d.classList.remove('selected'));
+        dot.classList.add('selected');
+        this.state.selectedAddColor = name;
+      });
+      colorGrid.appendChild(dot);
+    });
+
+    this.state.selectedAddColor = 'none';
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      const picker = document.getElementById('add-options-popover');
+      const btn = document.getElementById('btn-add-options');
+      if (picker && !picker.classList.contains('hidden') && !picker.contains(e.target) && !btn.contains(e.target)) {
+        this.closeAddOptionsPopover();
+      }
+    });
+
+    // Prevent closing when clicking inside picker
+    document.getElementById('add-options-popover')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+  },
+
+  openAddOptionsPopover: function (e) {
+    const picker = document.getElementById('add-options-popover');
+    const target = e.currentTarget;
+    const rect = target.getBoundingClientRect();
+
+    // Close others
+    this.closeColorPicker();
+    this.closeFindReplacePicker();
+
+    // Reset to default color: none
+    this.state.selectedAddColor = 'none';
+    const colorGrid = document.getElementById('add-options-color-grid');
+    if (colorGrid) {
+      colorGrid.querySelectorAll('.color-option').forEach(dot => {
+        if (dot.dataset.color === 'none') {
+          dot.classList.add('selected');
+        } else {
+          dot.classList.remove('selected');
+        }
+      });
+    }
+
+    // Clear status
+    this.updateAddOptionsStatus('');
+
+    picker.classList.remove('hidden');
+
+    // Position popover
+    picker.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    picker.style.left = (rect.left + window.scrollX) + 'px';
+
+    // Focus textarea
+    document.getElementById('add-options-input')?.focus();
+  },
+
+  closeAddOptionsPopover: function () {
+    document.getElementById('add-options-popover')?.classList.add('hidden');
+  },
+
+  handleAddOptions: function () {
+    const textarea = document.getElementById('add-options-input');
+    const text = textarea.value;
+    const selectedColor = this.state.selectedAddColor || 'none';
+
+    if (!text.trim()) {
+      this.updateAddOptionsStatus('Please enter at least one option name');
+      return;
+    }
+
+    const newNames = text.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0);
+
+    // Current names from state (which are synced from DOM in checkForChanges)
+    // We should sync before checking duplicates
+    this.syncStateFromDom();
+
+    const existingNames = this.state.enumOptions.map(o => o.name);
+    const duplicates = newNames.filter(name => existingNames.includes(name));
+
+    // Internal duplicates in the new batch
+    const nameSet = new Set();
+    const batchDuplicates = [];
+    newNames.forEach(name => {
+      if (nameSet.has(name)) batchDuplicates.push(name);
+      nameSet.add(name);
+    });
+
+    if (duplicates.length > 0 || batchDuplicates.length > 0) {
+      this.updateAddOptionsStatus('Duplicate names found. Please fix them.');
+      // Update global validation status to show the error in the main area too
+      this.state.hasValidationErrors = true;
+      this.checkForChanges();
+      return;
+    }
+
+    // Add new items
+    newNames.forEach(name => {
+      this.state.enumOptions.push({
+        gid: 'new-' + Date.now() + '-' + Math.random(),
+        name: name,
+        color: selectedColor,
+        enabled: true
+      });
+    });
+
+    // Success
+    this.renderEnumList(this.state.enumOptions);
+    this.checkForChanges();
+    this.closeAddOptionsPopover();
+
+    // Clear textarea for next time
+    textarea.value = '';
+  },
+
+  updateAddOptionsStatus: function (message) {
+    const status = document.getElementById('add-options-status');
+    if (!status) return;
+    if (message) {
+      status.textContent = message;
+      status.classList.remove('hidden');
+    } else {
+      status.classList.add('hidden');
+    }
+  },
+
+  syncStateFromDom: function () {
+    const rows = this.elements.enumList.querySelectorAll('.enum-row');
+    this.state.enumOptions.forEach((opt, index) => {
+      const row = rows[index];
+      if (row) {
+        const input = row.querySelector('.option-input');
+        opt.name = input.value;
+      }
+    });
   },
 
   closeFindReplacePicker: function () {
