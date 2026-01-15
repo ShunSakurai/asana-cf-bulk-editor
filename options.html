@@ -116,7 +116,7 @@
               </div>
             </div>
 
-            <div class="feature-card coming-soon">
+            <div id="btn-bulk-find-replace" class="feature-card" role="button" tabindex="0">
               <div class="card-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                   stroke-linecap="round" stroke-linejoin="round">
@@ -126,7 +126,7 @@
               </div>
               <div class="card-content">
                 <span class="card-title">Find & Replace...</span>
-                <span class="card-desc">Coming soon</span>
+                <span class="card-desc">Find and replace text in options</span>
               </div>
             </div>
           </div>
@@ -142,6 +142,33 @@
   <div id="color-picker" class="color-picker-popover hidden">
     <div class="color-grid" id="color-grid"></div>
   </div>
+
+  <div id="find-replace-picker" class="find-replace-popover hidden">
+    <div class="popover-content">
+      <div class="input-group">
+        <label for="find-input">Find</label>
+        <input type="text" id="find-input" placeholder="Text to find...">
+      </div>
+      <div class="action-row">
+        <label class="checkbox-label" title="Regular expressions">
+          <input type="checkbox" id="find-regex">
+          <span>Regex</span>
+        </label>
+        <button id="btn-do-find" class="secondary-button">Find</button>
+      </div>
+      <div class="input-group replace-group">
+        <label for="replace-input">Replace with</label>
+        <input type="text" id="replace-input" placeholder="Replacement text...">
+      </div>
+      <div class="action-row">
+        <div id="regex-helper" class="regex-helper hidden">$&, $1, ... for capture groups</div>
+        <button id="btn-do-replace" class="primary-button">Replace</button>
+      </div>
+      <div id="find-replace-status" class="find-replace-status hidden"></div>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
 </body>
 
 </html>

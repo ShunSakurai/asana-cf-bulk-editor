@@ -68,6 +68,7 @@ const App = {
     this.attachEventListeners();
     this.initTypeahead();
     this.initColorPicker();
+    this.initFindReplace();
 
     // Attempt to detect context from open tabs
     this.detectContext().then(context => {
@@ -138,6 +139,12 @@ const App = {
     document.getElementById('btn-bulk-recolor').addEventListener('click', (e) => {
       e.stopPropagation();
       this.openColorPicker(e);
+    });
+
+    // Find & Replace Button
+    document.getElementById('btn-bulk-find-replace').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.openFindReplacePicker(e);
     });
 
     window.addEventListener('beforeunload', (event) => {
@@ -605,6 +612,7 @@ const App = {
         this.updateApplyButton();
         this.updateSortButton();
         this.updateRecolorButton();
+        this.updateFindReplaceButton();
         this.renderEnumList(this.state.enumOptions);
         this.switchView('current');
       })
@@ -987,6 +995,7 @@ const App = {
 
     this.updateSortButton();
     this.updateRecolorButton();
+    this.updateFindReplaceButton();
   },
 
   updateSortButton: function () {
@@ -1022,6 +1031,23 @@ const App = {
       if (desc) desc.textContent = 'Assign color to selected options';
     } else {
       if (desc) desc.textContent = 'Assign color to all options';
+    }
+  },
+
+  updateFindReplaceButton: function () {
+    const btn = document.getElementById('btn-bulk-find-replace');
+    if (!btn) return;
+
+    const desc = btn.querySelector('.card-desc');
+
+    const selectedIndices = this.getSelectedIndices();
+    const total = this.state.enumOptions.length;
+    const selectedCount = selectedIndices.length;
+
+    if (selectedCount > 0 && selectedCount < total) {
+      if (desc) desc.textContent = 'Find and replace text in selected options';
+    } else {
+      if (desc) desc.textContent = 'Find and replace text in all options';
     }
   },
 
@@ -1075,6 +1101,8 @@ const App = {
     }
 
     this.updateSortButton();
+    this.updateRecolorButton();
+    this.updateFindReplaceButton();
     this.checkForChanges();
   },
 
@@ -1291,6 +1319,213 @@ const App = {
 
     this.updateSortButton();
     this.updateRecolorButton();
+    this.updateFindReplaceButton();
+  },
+
+  // Find & Replace Logic
+  initFindReplace: function () {
+    const btnFind = document.getElementById('btn-do-find');
+    const btnReplace = document.getElementById('btn-do-replace');
+    const regexCheckbox = document.getElementById('find-regex');
+
+    if (btnFind) {
+      btnFind.addEventListener('click', () => this.handleFind());
+    }
+    if (btnReplace) {
+      btnReplace.addEventListener('click', () => this.handleReplace());
+    }
+
+    if (regexCheckbox) {
+      regexCheckbox.addEventListener('change', () => {
+        const helper = document.getElementById('regex-helper');
+        if (helper) {
+          if (regexCheckbox.checked) {
+            helper.classList.remove('hidden');
+          } else {
+            helper.classList.add('hidden');
+          }
+        }
+      });
+    }
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      const picker = document.getElementById('find-replace-picker');
+      const btn = document.getElementById('btn-bulk-find-replace');
+      if (picker && !picker.classList.contains('hidden') && !picker.contains(e.target) && !btn.contains(e.target)) {
+        this.closeFindReplacePicker();
+      }
+    });
+
+    // Prevent closing when clicking inside picker
+    document.getElementById('find-replace-picker')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+  },
+
+  openFindReplacePicker: function (e) {
+    const picker = document.getElementById('find-replace-picker');
+    const target = e.currentTarget;
+    const rect = target.getBoundingClientRect();
+
+    // Clear status
+    this.updateFindReplaceStatus('');
+
+    picker.classList.remove('hidden');
+
+    // Position popover
+    picker.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    picker.style.left = (rect.left + window.scrollX) + 'px';
+
+    // Sync helper text
+    const regexCheckbox = document.getElementById('find-regex');
+    const helper = document.getElementById('regex-helper');
+    if (regexCheckbox && helper) {
+      if (regexCheckbox.checked) {
+        helper.classList.remove('hidden');
+      } else {
+        helper.classList.add('hidden');
+      }
+    }
+  },
+
+  closeFindReplacePicker: function () {
+    const picker = document.getElementById('find-replace-picker');
+    if (picker) picker.classList.add('hidden');
+  },
+
+  updateFindReplaceStatus: function (message) {
+    const status = document.getElementById('find-replace-status');
+    if (!status) return;
+    if (message) {
+      status.textContent = message;
+      status.classList.remove('hidden');
+    } else {
+      status.classList.add('hidden');
+    }
+  },
+
+  handleFind: function () {
+    const findText = document.getElementById('find-input').value;
+    const useRegex = document.getElementById('find-regex').checked;
+
+    if (!findText) {
+      this.updateFindReplaceStatus('Please enter text to find');
+      return 0;
+    }
+
+    const options = this.state.enumOptions;
+    const rows = this.elements.enumList.querySelectorAll('.enum-row');
+    const checkboxes = this.elements.enumList.querySelectorAll('.option-checkbox');
+    const selectedIndicesBefore = this.getSelectedIndices();
+
+    let regex;
+    if (useRegex) {
+      try {
+        regex = new RegExp(findText, 'i');
+      } catch (e) {
+        console.error('Invalid Regex', e);
+        this.updateFindReplaceStatus('Invalid Regex pattern');
+        return 0;
+      }
+    }
+
+    let matchCount = 0;
+    options.forEach((opt, index) => {
+      // If we have a selection, only search within that selection
+      if (selectedIndicesBefore.length > 0 && !selectedIndicesBefore.includes(index)) {
+        return;
+      }
+
+      let isMatch = false;
+      if (useRegex) {
+        isMatch = regex.test(opt.name);
+      } else {
+        isMatch = opt.name.toLowerCase().includes(findText.toLowerCase());
+      }
+
+      if (isMatch) {
+        matchCount++;
+      }
+
+      // If we were searching ALL, update selection to matches
+      if (selectedIndicesBefore.length === 0) {
+        checkboxes[index].checked = isMatch;
+        this.updateRowSelection(rows[index], isMatch);
+      }
+    });
+
+    if (matchCount === 0) {
+      const rangeText = selectedIndicesBefore.length > 0 ? ' (in the selected range)' : '';
+      this.updateFindReplaceStatus(`No result found${rangeText}`);
+    } else {
+      this.updateFindReplaceStatus(`${matchCount} options found and selected`);
+    }
+
+    if (selectedIndicesBefore.length === 0) {
+      this.updateSortButton();
+      this.updateRecolorButton();
+      this.updateFindReplaceButton();
+    }
+
+    return matchCount;
+  },
+
+  handleReplace: function () {
+    const findText = document.getElementById('find-input').value;
+    const replaceText = document.getElementById('replace-input').value;
+    const useRegex = document.getElementById('find-regex').checked;
+
+    if (!findText) {
+      this.updateFindReplaceStatus('Please enter text to find');
+      return;
+    }
+
+    const selectedIndicesBefore = this.getSelectedIndices();
+
+    // handleFind returns matchCount within the current scope (selection or all)
+    const matchCount = this.handleFind();
+    if (matchCount === 0) return;
+
+    // After handleFind, we use the (potentially new) selection
+    const selectedIndices = this.getSelectedIndices();
+    const rows = this.elements.enumList.querySelectorAll('.enum-row');
+    let replacedCount = 0;
+
+    selectedIndices.forEach(index => {
+      // If we HAD an original selection, only replace within that original selection
+      if (selectedIndicesBefore.length > 0 && !selectedIndicesBefore.includes(index)) {
+        return;
+      }
+
+      const opt = this.state.enumOptions[index];
+      let newName;
+
+      if (useRegex) {
+        try {
+          const regex = new RegExp(findText, 'gi');
+          newName = opt.name.replace(regex, replaceText);
+        } catch (e) {
+          return;
+        }
+      } else {
+        // Simple case-insensitive replacement (all occurrences)
+        const escapedFind = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escapedFind, 'gi');
+        newName = opt.name.replace(regex, replaceText);
+      }
+
+      if (newName !== opt.name) {
+        replacedCount++;
+        this.state.enumOptions[index].name = newName;
+        // Update DOM
+        const input = rows[index].querySelector('.option-input');
+        if (input) input.value = newName;
+      }
+    });
+
+    this.updateFindReplaceStatus(`${replacedCount} options found and replaced`);
+    this.checkForChanges();
   },
 };
 
