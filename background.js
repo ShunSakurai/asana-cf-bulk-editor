@@ -199,7 +199,6 @@ Asana.ServerModel = {
   // Make requests to API to refresh cache at this interval.
   CACHE_REFRESH_INTERVAL_MS: 15 * 60 * 1000, // 15 minutes
 
-  _url_to_cached_image: {},
 
   /**
    * Request to the Cookie.
@@ -355,47 +354,6 @@ Asana.ServerModel = {
   },
 
   /**
-   * Makes an Asana API request to add a task in the system.
-   *
-   * @param task {dict} Task fields.
-   * @param callback {Function(response)} Callback on success.
-   */
-  createTask: function (callback, parameters) {
-    Asana.ApiBridge.request(
-      'POST', '/workspaces/' + parameters.workspace_gid + '/tasks',
-      parameters.task, callback, {}
-    );
-  },
-
-  /**
-   * Requests user type-ahead completions for a query.
-   * popup.js also has a custom class for handling returned data.
-   */
-  userTypeahead: function (callback, parameters) {
-    const self = this;
-    Asana.ApiBridge.request(
-      'GET', '/workspaces/' + parameters.workspace_gid + '/typeahead',
-      {
-        type: 'user',
-        query: parameters.query,
-        count: 10,
-        opt_fields: 'name,photo.image_60x60',
-      },
-      function (responseJson) {
-        const users = responseJson.data;
-        users.forEach(function (user) {
-          self._updateUser(parameters.workspace_gid, user);
-        });
-        callback(responseJson);
-        return true;
-      },
-      {
-        miss_cache: true, // Always skip the cache.
-      }
-    );
-  },
-
-  /**
    * Requests project type-ahead completions for a query.
    */
   projectTypeahead: function (callback, parameters) {
@@ -412,29 +370,6 @@ Asana.ServerModel = {
         miss_cache: true
       }
     );
-  },
-
-  /**
-   * All the users that have been seen so far, keyed by workspace and user.
-   */
-  _known_users: {},
-
-  _updateUser: function (workspace_gid, user) {
-    this._known_users[workspace_gid] = this._known_users[workspace_gid] || {};
-    this._known_users[workspace_gid][user.gid] = user;
-    this._cacheUserPhoto(user);
-  },
-
-  _cacheUserPhoto: function (user) {
-    const me = this;
-    if (user.photo) {
-      const url = user.photo.image_60x60;
-      if (!(url in me._url_to_cached_image)) {
-        const image = new Image();
-        image.src = url;
-        me._url_to_cached_image[url] = image;
-      }
-    }
   },
 
   /**

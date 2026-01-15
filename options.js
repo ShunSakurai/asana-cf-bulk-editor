@@ -26,8 +26,6 @@ const App = {
     currentProjectGid: null,
     currentFieldGid: null,
     enumOptions: [],
-    currentFieldGid: null,
-    enumOptions: [],
     allProjects: [],
     originalOptions: [],
     hasUnsavedChanges: false
@@ -35,7 +33,6 @@ const App = {
 
   elements: {
     workspaceSelect: null,
-    projectSelect: null,
     fieldSelect: null,
     views: {
       empty: null,
@@ -54,7 +51,6 @@ const App = {
     this.elements.views.current = document.getElementById('state-current');
     this.elements.enumList = document.getElementById('enum-list');
 
-    this.attachEventListeners();
     this.attachEventListeners();
     this.initTypeahead();
     this.initColorPicker();
@@ -315,7 +311,7 @@ const App = {
     this.callApi('workspaces', {})
       .then(data => {
         this.state.workspaces = data;
-        this.renderSelect('workspaceSelect', data, 'Select Workspace');
+        this.renderSelect('workspaceSelect', data, '-- Select Workspace --');
         this.elements.workspaceSelect.disabled = false;
 
         let targetGid = null;
@@ -554,7 +550,7 @@ const App = {
           this.elements.fieldSelect.innerHTML = '<option value="">No dropdown fields found</option>';
           this.elements.fieldSelect.disabled = true;
         } else {
-          this.renderSelect('fieldSelect', enumFields, 'Select Custom Field');
+          this.renderSelect('fieldSelect', enumFields, '-- Select Custom Field --');
           this.elements.fieldSelect.disabled = false;
         }
       })
