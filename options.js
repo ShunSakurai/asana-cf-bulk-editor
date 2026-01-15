@@ -1,20 +1,34 @@
-const COLORS = {
-  'none': '#e8ecf1',
-  'red': '#f06a6a',
-  'orange': '#fc8d61',
-  'yellow-orange': '#fdac5d',
-  'yellow': '#fce96c',
-  'yellow-green': '#bce968',
-  'blue-green': '#73d3b7',
-  'green': '#67cf8b',
-  'aqua': '#7ddacc',
-  'blue': '#55b2fa',
-  'indigo': '#6774e6',
-  'purple': '#9a6ee7',
-  'magenta': '#e873c0',
-  'hot-pink': '#fa709a',
-  'pink': '#fb8f9d',
-  'cool-gray': '#8894a4'
+const COLORS = [
+  { name: 'none', hex: '#bdbdbd' },
+  { name: 'red', hex: '#fe8285' },
+  { name: 'orange', hex: '#fd9864' },
+  { name: 'yellow-orange', hex: '#f5b650' },
+  { name: 'yellow', hex: '#f4d35f' },
+  { name: 'yellow-green', hex: '#bbe27d' },
+  { name: 'green', hex: '#7fd29c' },
+  { name: 'blue-green', hex: '#6dcce4' },
+  { name: 'aqua', hex: '#98e3d8' },
+  { name: 'blue', hex: '#6fa0fc' },
+  { name: 'indigo', hex: '#b0a2fc' },
+  { name: 'purple', hex: '#df94ee' },
+  { name: 'magenta', hex: '#f9a5e5' },
+  { name: 'hot-pink', hex: '#fe8cc2' },
+  { name: 'pink', hex: '#fea7ba' },
+  { name: 'cool-gray', hex: '#a0a0a0' }
+];
+
+const COLOR_MAP = COLORS.reduce((acc, { name, hex }) => {
+  acc[name] = hex;
+  return acc;
+}, {});
+
+const PATTERNS = {
+  'Color palette': COLORS.map(c => c.name),
+  'Asana default': [
+    'green', 'red', 'orange', 'yellow-orange', 'yellow', 'yellow-green',
+    'blue-green', 'aqua', 'blue', 'indigo', 'purple', 'magenta',
+    'hot-pink', 'pink', 'cool-gray', 'none'
+  ]
 };
 
 const App = {
@@ -655,7 +669,7 @@ const App = {
       if (this.state.currentFieldSubtype === 'multi_enum') {
         colorDot.classList.add('multi-enum');
       }
-      colorDot.style.backgroundColor = COLORS[opt.color] || COLORS['none'];
+      colorDot.style.backgroundColor = COLOR_MAP[opt.color] || COLOR_MAP['none'];
       colorDot.title = `Recolor (current: ${opt.color})`;
 
       colorDot.addEventListener('click', (e) => {
@@ -1069,8 +1083,16 @@ const App = {
     const picker = document.getElementById('color-picker');
     const grid = document.getElementById('color-grid');
 
-    // Render colors
-    Object.entries(COLORS).forEach(([name, hex]) => {
+    // Render Section: Colors
+    const singleColorTitle = document.createElement('div');
+    singleColorTitle.className = 'picker-section-title';
+    singleColorTitle.textContent = 'colors';
+    grid.appendChild(singleColorTitle);
+
+    const colorGrid = document.createElement('div');
+    colorGrid.className = 'color-grid-inner';
+
+    COLORS.forEach(({ name, hex }) => {
       const dot = document.createElement('div');
       dot.className = 'color-option';
       dot.style.backgroundColor = hex;
@@ -1079,8 +1101,42 @@ const App = {
         e.stopPropagation();
         this.selectColor(name);
       });
-      grid.appendChild(dot);
+      colorGrid.appendChild(dot);
     });
+    grid.appendChild(colorGrid);
+
+    // Render Section: Patterns
+    const patternsTitle = document.createElement('div');
+    patternsTitle.className = 'picker-section-title';
+    patternsTitle.textContent = 'patterns';
+    grid.appendChild(patternsTitle);
+
+    const patternsList = document.createElement('div');
+    patternsList.className = 'patterns-list';
+
+    Object.keys(PATTERNS).forEach(patternName => {
+      const option = document.createElement('div');
+      option.className = 'pattern-option';
+
+      const label = document.createElement('span');
+      label.textContent = patternName;
+
+      const preview = document.createElement('div');
+      preview.className = 'pattern-preview';
+      // Create a small gradient preview using the first few colors
+      const previewColors = PATTERNS[patternName].slice(0, 5).map(name => COLOR_MAP[name]);
+      preview.style.background = `linear-gradient(90deg, ${previewColors.join(', ')})`;
+
+      option.appendChild(label);
+      option.appendChild(preview);
+
+      option.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.applyPattern(patternName);
+      });
+      patternsList.appendChild(option);
+    });
+    grid.appendChild(patternsList);
 
     // Close on outside click
     document.addEventListener('click', (e) => {
@@ -1146,7 +1202,7 @@ const App = {
       const row = rows[index];
       if (row) {
         const dot = row.querySelector('.color-dot');
-        dot.style.backgroundColor = COLORS[colorName];
+        dot.style.backgroundColor = COLOR_MAP[colorName];
         dot.title = `Recolor (current: ${colorName})`;
       }
     });
@@ -1156,6 +1212,59 @@ const App = {
     if (panel) {
       panel.classList.remove('flash-success');
       void panel.offsetWidth; // trigger reflow
+      panel.classList.add('flash-success');
+    }
+
+    this.closeColorPicker();
+    this.checkForChanges();
+  },
+
+  applyPattern: function (patternName) {
+    const pattern = PATTERNS[patternName];
+    if (!pattern) return;
+
+    const rows = this.elements.enumList.querySelectorAll('.enum-row');
+    let indicesToUpdate = [];
+
+    if (this.activeColorRowIndex !== null) {
+      // TRIGGERED FROM A ROW
+      const targetCheckbox = rows[this.activeColorRowIndex].querySelector('.option-checkbox');
+      if (targetCheckbox.checked) {
+        indicesToUpdate = this.getSelectedIndices();
+      } else {
+        indicesToUpdate = [this.activeColorRowIndex];
+      }
+    } else {
+      // TRIGGERED FROM BULK RECOLOR CARD
+      const selectedIndices = this.getSelectedIndices();
+      if (selectedIndices.length > 0) {
+        indicesToUpdate = selectedIndices;
+      } else {
+        indicesToUpdate = this.state.enumOptions.map((_, i) => i);
+      }
+    }
+
+    // Apply Pattern Sequentially
+    indicesToUpdate.forEach((stateIndex, patternIndex) => {
+      const colorName = pattern[patternIndex % pattern.length];
+
+      // Update State
+      this.state.enumOptions[stateIndex].color = colorName;
+
+      // Update DOM
+      const row = rows[stateIndex];
+      if (row) {
+        const dot = row.querySelector('.color-dot');
+        dot.style.backgroundColor = COLOR_MAP[colorName];
+        dot.title = `Recolor (current: ${colorName})`;
+      }
+    });
+
+    // Visual Feedback
+    const panel = document.getElementById('left-panel');
+    if (panel) {
+      panel.classList.remove('flash-success');
+      void panel.offsetWidth;
       panel.classList.add('flash-success');
     }
 
