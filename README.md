@@ -7,24 +7,22 @@ This extension is meant to solve two common pains when managing dropdown custom 
 1. **Custom field options can only be edited one at a time** in the standard UI.
 2. **Default option coloring can be too colorful** and visually noisy.
 
-## What it does
-
-- **Alphabetical Sort**: sort all/selected options A → Z.
-- **Recolor**: assign colors or a pattern of colors across options in one go.
-- **Find & Replace**: select options which contain a keyword and rename options across the list. Regular expressions are supported.
-- **Bulk add options**: add many new dropdown options at once with a set color.
-- **Preview first, then apply changes**: you can review before committing.
-
----
+You can preview the changes on the extension before committing them in Asana.
 
 ## Installation
 
-> **Store installation:** *Coming soon* (Chrome Web Store / other stores).  
-> (I’m intentionally keeping store steps out until it’s published.)
+You can install the extension from the **[Chrome Web Store](https://chromewebstore.google.com/detail/jiohgocpmahpmdmekkcfmnadjfameaco?utm_source=github)**.
 
----
+*Coming soon on Firefox store*
 
 ## How to use
+
+Please watch the "How to use" video on YouTube for details:
+
+[![Asana CF Bulk Editor - How to use](https://img.youtube.com/vi/Cf81zKQELMM/0.jpg)](https://www.youtube.com/watch?v=Cf81zKQELMM)
+
+### 0) Open Asana project (optional)
+- Open Asana project where the CF is used
 
 ### 1) Open the editor
 - Click the extension icon to open the **Custom Field Editor** page (options/editor UI).
@@ -36,6 +34,7 @@ At the top of the editor:
 2. **Project**: pick a project that contains the target custom field.
 3. **Custom field**: pick the dropdown (single-select or multi-select) custom field you want to edit.
 
+If you've done the step 0, workspace and project are pre-selected.
 The left pane will list the field’s **Options** (each with a checkbox, a color swatch, and the option name).
 
 ### 3) Select options (optional)
@@ -61,10 +60,6 @@ In the **Actions** pane on the right:
 ### 5) Apply changes
 When you’re happy with the preview/state, click **Apply changes** to write updates back to Asana.
 
-> Tip: Make sure you have permission to edit the custom field/options in that workspace.
-
----
-
 ## Privacy policy and terms of use
 
 We don't collect your data. We don't have our server to store, use, and share such information. We only use your Asana data (URLs, resource IDs, names, etc.) to make API calls to Asana through HTTPS. All communications are between you and Asana API. All options are saved to your browser, not in other places.
@@ -81,9 +76,7 @@ I try my best to maintain the quality and safety of this extension, but please u
 ## Feedback and contribution
 
 I'd love to hear from users and developers.
-Please feel free to post feature requests, bug reports, and questions through the [Chrome Web Store](), [addons.mozilla.org](), [GitHub Issues](https://github.com/ShunSakurai/asana-cf-bulk-editor/issues). Issues and pull requests are welcome.
-
----
+Please feel free to post feature requests, bug reports, and questions through the [Chrome Web Store](https://chromewebstore.google.com/detail/jiohgocpmahpmdmekkcfmnadjfameaco?utm_source=github), ~~addons.mozilla.org~~, [GitHub Issues](https://github.com/ShunSakurai/asana-cf-bulk-editor/issues). Issues and pull requests are welcome.
 
 ## License
 
