@@ -101,8 +101,6 @@ Asana.ApiBridge = {
       }).join('&');
     }
 
-    console.log('Making request to API', http_method, url);
-
     chrome.cookies.get({
       url: url,
       name: 'ticket'
@@ -133,12 +131,7 @@ Asana.ApiBridge = {
 
       fetch(url, attrs)
         .then(response => {
-          return response.json().then(json => {
-            if (!response.ok) {
-              console.log('Response not ok', json);
-            }
-            return json;
-          });
+          return response.json();
         })
         .then(responseJson => {
           if (http_method === 'GET') {

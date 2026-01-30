@@ -86,7 +86,6 @@ const App = {
       const urlParams = new URLSearchParams(window.location.search);
       const sourceProject = urlParams.get('sourceProject');
       const sourceUrl = urlParams.get('sourceUrl');
-      console.log('Context info:', { sourceProject, sourceUrl });
 
       let projectGid = sourceProject;
 
@@ -100,8 +99,6 @@ const App = {
       }
 
       if (projectGid) {
-        console.log('Context project detected:', projectGid);
-
         // Fetch project details to get Workspace and verify it exists
         this.callApi('project', { project_gid: projectGid })
           .then(project => {
@@ -328,7 +325,6 @@ const App = {
       })
       .then(() => {
         // All Done
-        console.log('All updates, moves, and deletions successful');
         this.state.originalOptions = JSON.parse(JSON.stringify(this.state.enumOptions));
         this.state.hasUnsavedChanges = false;
         this.updateApplyButton();
@@ -348,9 +344,11 @@ const App = {
         btn.textContent = 'Apply changes';
       })
       .catch(err => {
-        console.error('Failed to update Asana', err);
         const status = document.getElementById('action-status');
-        status.textContent = 'Failed to update Asana: ' + (err.message || 'Unknown error');
+        const errorMessage = (Array.isArray(err) && err.length > 0 && err[0].message)
+          ? err[0].message
+          : (err.message || 'Unknown error');
+        status.textContent = 'Failed to update Asana: ' + errorMessage;
         status.className = 'action-status error';
         status.classList.remove('hidden');
 
@@ -391,7 +389,7 @@ const App = {
           }
           if (response && response.errors) {
             if (!options.suppressErrorLog) {
-              console.error('API Error', response.errors);
+              console.log('API Error', response.errors);
             }
             reject(response.errors);
           } else if (response) {
@@ -431,7 +429,7 @@ const App = {
 
         this._finalizeWorkspaceInit(data, targetGid, context);
       })
-      .catch(err => console.error(err));
+      .catch(err => console.log(err));
   },
 
   _finalizeWorkspaceInit: function (workspaces, contentOrStorageGid, context) {
@@ -553,7 +551,6 @@ const App = {
         this.renderProjectOptions(data);
       })
       .catch(err => {
-        console.error(err);
         this.renderProjectOptions([], 'Error searching projects');
       });
   },
@@ -603,7 +600,7 @@ const App = {
         if (isTooLarge) {
           console.log('Fetch all projects: Result too large, falling back to typeahead');
         } else {
-          console.error('Fetch all projects failed, falling back to typeahead', err);
+          console.log('Fetch all projects failed, falling back to typeahead', err);
         }
         this.state.allProjects = []; // Clear to force typeahead
         document.getElementById('project-input').placeholder = "Type to search projects...";
@@ -653,7 +650,7 @@ const App = {
           this.elements.fieldSelect.disabled = false;
         }
       })
-      .catch(err => console.error(err));
+      .catch(err => console.log(err));
   },
 
   onFieldChange: function (fieldGid) {
@@ -688,7 +685,7 @@ const App = {
         this.renderEnumList(this.state.enumOptions);
         this.switchView('current');
       })
-      .catch(err => console.error(err));
+      .catch(err => console.log(err));
   },
 
   // UI Rendering
