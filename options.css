@@ -232,7 +232,7 @@ body {
   width: 40%;
   flex-shrink: 0;
   background-color: #fcfcfc;
-  padding: 24px;
+  padding: 16px 24px;
   display: flex;
   flex-direction: column;
 }
@@ -245,7 +245,7 @@ body {
 
 .action-content h3 {
   margin-top: 0;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -479,7 +479,7 @@ body {
 }
 
 #state-current {
-  max-height: calc(100vh - 150px); 
+  max-height: calc(100vh - 150px);
   overflow-y: auto;
   position: relative;
 }
@@ -513,26 +513,74 @@ body {
 
 /* Enum List */
 .list-header {
-  padding: 20px 24px;
+  padding: 16px 24px;
   border-bottom: 1px solid var(--border-light);
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
   position: sticky;
   top: 0;
   background-color: #fff;
   z-index: 10;
 }
 
-.count-label {
-  font-size: 14px;
+.header-info {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-type-label {
+  margin: 0;
+  font-size: 16px;
   font-weight: 600;
+  color: var(--text-primary);
+}
+
+.copy-id-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-secondary);
+  opacity: 0.6;
+  transition: all 0.2s;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.copy-id-btn:hover {
+  background-color: #f6f8f9;
+  color: var(--primary-color);
+  opacity: 1;
+}
+
+.copy-id-btn.copied {
+  color: var(--success-text, #2e7d32);
+  opacity: 1;
+  position: relative;
+}
+
+.copy-id-btn.copied::after {
+  content: "Copied";
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--success-text, #2e7d32);
+  white-space: nowrap;
 }
 
 .selection-controls {
-  font-size: 14px;
+  font-size: 13px;
+  margin-bottom: 2px;
+  /* Align visually with the bottom line of ID text */
 }
+
+
 
 .selection-controls a {
   color: var(--primary-color);

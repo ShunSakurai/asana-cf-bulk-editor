@@ -160,6 +160,22 @@ const App = {
         event.returnValue = '';
       }
     });
+
+    // Copy ID Button
+    document.getElementById('field-copy-id-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      if (this.state.currentFieldGid) {
+        navigator.clipboard.writeText(this.state.currentFieldGid).then(() => {
+          const btn = document.getElementById('field-copy-id-btn');
+          const originalTitle = btn.title;
+          btn.classList.add('copied');
+
+          setTimeout(() => {
+            btn.classList.remove('copied');
+          }, 2000);
+        });
+      }
+    });
   },
 
   // ... (switchView, callApi, fetchWorkspaces...)
@@ -478,9 +494,10 @@ const App = {
     // Reset downstream
     const projectInput = document.getElementById('project-input');
     projectInput.value = '';
-    projectInput.disabled = !workspaceGid;
+    projectInput.disabled = true;
     projectInput.placeholder = "Loading projects...";
-    document.getElementById('project-list').classList.add('hidden'); // Hide list on workspace change
+    document.getElementById('project-list').classList.add('hidden');
+    document.getElementById('project-ext-link').classList.add('hidden');
     document.getElementById('project-list').innerHTML = ''; // Clear rendered list
 
     this.elements.fieldSelect.innerHTML = '<option value="">Select a project first</option>';
@@ -501,6 +518,10 @@ const App = {
     let debounceTimer;
 
     const handleSearch = (query) => {
+      if (!query) {
+        this.onProjectChange(null);
+      }
+
       if (this.state.allProjects.length > 0) {
         // Local Filter
         const filtered = this.state.allProjects.filter(p =>
@@ -682,6 +703,18 @@ const App = {
         this.updateSortButton();
         this.updateRecolorButton();
         this.updateFindReplaceButton();
+
+        // Update Header Info
+        const typeLabel = document.getElementById('field-type-label');
+        if (typeLabel) {
+          const typeText = this.state.currentFieldSubtype === 'multi_enum' ? 'Multi-select options' : 'Single-select options';
+          typeLabel.textContent = typeText;
+        }
+        const copyBtn = document.getElementById('field-copy-id-btn');
+        if (copyBtn) {
+          copyBtn.title = `Copy custom field ID: ${fieldGid}`;
+        }
+
         this.renderEnumList(this.state.enumOptions);
         this.switchView('current');
       })
