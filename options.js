@@ -75,6 +75,7 @@ const App = {
     this.initColorPicker();
     this.initFindReplace();
     this.initAddOptions();
+    this.initShortcutsPopover();
 
     // Attempt to detect context from open tabs
     this.detectContext().then(context => {
@@ -176,6 +177,9 @@ const App = {
         });
       }
     });
+
+    // Keyboard shortcuts for moving selected options (Cmd/Ctrl + Arrow keys)
+    document.addEventListener('keydown', (e) => this.handleKeydown(e));
   },
 
   // ... (switchView, callApi, fetchWorkspaces...)
@@ -776,8 +780,11 @@ const App = {
     const listContainer = this.elements.enumList;
     listContainer.innerHTML = '';
 
-    // Reset last checked index on re-render
+    // Reset selection anchors on re-render
     this.lastCheckedIndex = null;
+    this.keyboardSelectionAnchorIndex = null;
+    this.keyboardSelectionCursorIndex = null;
+    this.keyboardSelectionBaseSelectedSet = null;
 
     options.forEach((opt, index) => {
       const row = document.createElement('div');
@@ -903,6 +910,263 @@ const App = {
       }
     });
     return selectedIndices;
+  },
+
+  getFocusedRowIndex: function () {
+    const active = document.activeElement;
+    if (!active || !this.elements.enumList) return null;
+
+    const row = active.closest ? active.closest('.enum-row') : null;
+    if (!row || row.dataset.index == null) return null;
+
+    const idx = parseInt(row.dataset.index, 10);
+    return Number.isNaN(idx) ? null : idx;
+  },
+
+  resetKeyboardSelectionRange: function () {
+    this.keyboardSelectionAnchorIndex = null;
+    this.keyboardSelectionCursorIndex = null;
+    this.keyboardSelectionBaseSelectedSet = null;
+  },
+
+  handleKeydown: function (e) {
+    const isMetaOrCtrl = e.metaKey || e.ctrlKey;
+    const isArrowUp = e.key === 'ArrowUp';
+    const isArrowDown = e.key === 'ArrowDown';
+
+    // Only act when the current options view is visible
+    if (this.elements.views.current.classList.contains('hidden')) {
+      return;
+    }
+
+    let selectedIndices = this.getSelectedIndices();
+
+    // Shift + Up/Down: expand selection by one without reordering
+    if (e.shiftKey && !isMetaOrCtrl && (isArrowUp || isArrowDown)) {
+      // If nothing is selected yet, but a row is focused, start from that row.
+      if (selectedIndices.length === 0) {
+        const focusIndex = this.getFocusedRowIndex();
+        if (focusIndex == null) {
+          return;
+        }
+        const checkboxes = this.elements.enumList.querySelectorAll('.option-checkbox');
+        const rows = this.elements.enumList.querySelectorAll('.enum-row');
+        if (!checkboxes[focusIndex] || !rows[focusIndex]) {
+          return;
+        }
+        checkboxes[focusIndex].checked = true;
+        this.updateRowSelection(rows[focusIndex], true);
+        this.lastCheckedIndex = focusIndex;
+        selectedIndices = [focusIndex];
+      }
+
+      this.expandSelectionByOne(isArrowUp ? 'up' : 'down', selectedIndices);
+      e.preventDefault();
+      return;
+    }
+
+    // From here on, require Cmd/Ctrl + Arrow for moving options
+    if (!isMetaOrCtrl || (!isArrowUp && !isArrowDown)) {
+      return;
+    }
+
+    // Sync current names from DOM before reordering
+    this.syncStateFromDom();
+
+    const selectedGids = new Set(selectedIndices.map(i => this.state.enumOptions[i].gid));
+
+    if (isArrowUp && e.shiftKey) {
+      // Cmd/Ctrl + Shift + Up → move selection to top
+      this.moveSelectionToBoundary('top', selectedGids);
+    } else if (isArrowDown && e.shiftKey) {
+      // Cmd/Ctrl + Shift + Down → move selection to bottom
+      this.moveSelectionToBoundary('bottom', selectedGids);
+    } else if (isArrowUp) {
+      // Cmd/Ctrl + Up → move selection one up
+      this.moveSelectionStep('up', selectedGids);
+    } else if (isArrowDown) {
+      // Cmd/Ctrl + Down → move selection one down
+      this.moveSelectionStep('down', selectedGids);
+    } else {
+      return;
+    }
+
+    // Prevent page scrolling
+    e.preventDefault();
+  },
+
+  expandSelectionByOne: function (direction, selectedIndices) {
+    const checkboxes = this.elements.enumList.querySelectorAll('.option-checkbox');
+    const rows = this.elements.enumList.querySelectorAll('.enum-row');
+    if (checkboxes.length === 0 || selectedIndices.length === 0) return;
+
+    // Initialize anchor and cursor for keyboard-driven range selection
+    let anchor = this.keyboardSelectionAnchorIndex;
+    let cursor = this.keyboardSelectionCursorIndex;
+
+    if (anchor == null || cursor == null) {
+      // When multiple items are already selected, start from the edge
+      // closest to the movement direction, matching the requested behavior.
+      if (selectedIndices.length > 1) {
+        anchor = direction === 'up'
+          ? Math.min(...selectedIndices)   // top-most selected for Shift+Up
+          : Math.max(...selectedIndices);  // bottom-most selected for Shift+Down
+      } else if (
+        this.lastCheckedIndex != null &&
+        checkboxes[this.lastCheckedIndex] &&
+        checkboxes[this.lastCheckedIndex].checked
+      ) {
+        // Prefer lastCheckedIndex if it is part of the current (single) selection
+        anchor = this.lastCheckedIndex;
+      } else {
+        // Fallback: single selection, use its index
+        anchor = selectedIndices[0];
+      }
+      cursor = anchor;
+
+      // Capture the base selection before keyboard-range changes so we keep
+      // those items selected even when extending/shrinking with Shift+Arrows.
+      this.keyboardSelectionBaseSelectedSet = new Set(selectedIndices);
+    }
+
+    const nextCursor = direction === 'up' ? cursor - 1 : cursor + 1;
+    if (nextCursor < 0 || nextCursor >= checkboxes.length) {
+      return; // Reached top/bottom
+    }
+
+    const start = Math.min(anchor, nextCursor);
+    const end = Math.max(anchor, nextCursor);
+
+    const baseSet = this.keyboardSelectionBaseSelectedSet || new Set();
+
+    // Apply contiguous selection between anchor and cursor, but preserve any
+    // items that were already selected before keyboard-range adjustments.
+    for (let i = 0; i < checkboxes.length; i++) {
+      const inKeyboardRange = i >= start && i <= end;
+      const shouldBeSelected = baseSet.has(i) || inKeyboardRange;
+      if (checkboxes[i].checked !== shouldBeSelected) {
+        checkboxes[i].checked = shouldBeSelected;
+        this.updateRowSelection(rows[i], shouldBeSelected);
+      }
+    }
+
+    // If we've returned to the base selection (cursor back to anchor),
+    // clear keyboard range tracking so the next Shift+Arrow starts fresh.
+    if (nextCursor === anchor && this.keyboardSelectionBaseSelectedSet) {
+      this.resetKeyboardSelectionRange();
+    } else {
+      this.keyboardSelectionAnchorIndex = anchor;
+      this.keyboardSelectionCursorIndex = nextCursor;
+    }
+
+    this.lastCheckedIndex = nextCursor;
+
+    this.updateSortButton();
+    this.updateRecolorButton();
+    this.updateFindReplaceButton();
+  },
+
+  moveSelectionStep: function (direction, selectedGids) {
+    const options = this.state.enumOptions;
+    const length = options.length;
+
+    // Build selection set by index for easier swapping
+    const selectedIndices = [];
+    options.forEach((opt, index) => {
+      if (selectedGids.has(opt.gid)) {
+        selectedIndices.push(index);
+      }
+    });
+
+    if (selectedIndices.length === 0) return;
+
+    const selectedIndexSet = new Set(selectedIndices);
+
+    if (direction === 'up') {
+      // Move each selected item up by swapping with the previous unselected item
+      for (let i = 0; i < length; i++) {
+        if (selectedIndexSet.has(i) && i > 0 && !selectedIndexSet.has(i - 1)) {
+          const tmp = options[i - 1];
+          options[i - 1] = options[i];
+          options[i] = tmp;
+          selectedIndexSet.delete(i);
+          selectedIndexSet.add(i - 1);
+        }
+      }
+    } else if (direction === 'down') {
+      // Move each selected item down by swapping with the next unselected item
+      for (let i = length - 1; i >= 0; i--) {
+        if (selectedIndexSet.has(i) && i < length - 1 && !selectedIndexSet.has(i + 1)) {
+          const tmp = options[i + 1];
+          options[i + 1] = options[i];
+          options[i] = tmp;
+          selectedIndexSet.delete(i);
+          selectedIndexSet.add(i + 1);
+        }
+      }
+    }
+
+    // Re-render and restore selection
+    this.renderEnumList(options);
+    this.restoreSelectionByGids(selectedGids);
+    this.checkForChanges();
+  },
+
+  moveSelectionToBoundary: function (boundary, selectedGids) {
+    const options = this.state.enumOptions;
+    const selected = [];
+    const remaining = [];
+
+    options.forEach((opt) => {
+      if (selectedGids.has(opt.gid)) {
+        selected.push(opt);
+      } else {
+        remaining.push(opt);
+      }
+    });
+
+    if (selected.length === 0) return;
+
+    if (boundary === 'top') {
+      this.state.enumOptions = [...selected, ...remaining];
+    } else if (boundary === 'bottom') {
+      this.state.enumOptions = [...remaining, ...selected];
+    } else {
+      return;
+    }
+
+    // Re-render and restore selection
+    this.renderEnumList(this.state.enumOptions);
+    this.restoreSelectionByGids(selectedGids);
+    this.checkForChanges();
+  },
+
+  restoreSelectionByGids: function (selectedGids) {
+    const rows = this.elements.enumList.querySelectorAll('.enum-row');
+    const checkboxes = this.elements.enumList.querySelectorAll('.option-checkbox');
+    let lastIndex = null;
+
+    this.state.enumOptions.forEach((opt, index) => {
+      const isSelected = selectedGids.has(opt.gid);
+      if (checkboxes[index]) {
+        checkboxes[index].checked = isSelected;
+      }
+      if (rows[index]) {
+        this.updateRowSelection(rows[index], isSelected);
+      }
+      if (isSelected) {
+        lastIndex = index;
+      }
+    });
+
+    // Update anchor for subsequent shift selections
+    if (lastIndex !== null) {
+      this.lastCheckedIndex = lastIndex;
+    }
+
+    this.updateSortButton();
+    this.updateRecolorButton();
+    this.updateFindReplaceButton();
   },
 
   // Change Tracking
@@ -1134,6 +1398,9 @@ const App = {
 
     const isModifier = e.shiftKey || e.metaKey || e.ctrlKey;
 
+    // Any manual click-based change should reset keyboard Shift+Arrow range tracking
+    this.resetKeyboardSelectionRange();
+
     // Ignore row click if not modifier and not checkbox click
     if (!isModifier && !isCheckboxClick) {
       return;
@@ -1154,16 +1421,44 @@ const App = {
     }
     // Cmd/Ctrl/Standard Click: Toggle
     else {
-      if (!isCheckboxClick) {
-        checkbox.checked = !checkbox.checked;
-      }
-      this.updateRowSelection(rows[currentIndex], checkbox.checked);
-      this.lastCheckedIndex = currentIndex;
-    }
+      const selectedIndices = this.getSelectedIndices();
 
-    // Update global last checked
-    if (!e.shiftKey) {
-      this.lastCheckedIndex = currentIndex;
+      // Special case: when using Cmd/Ctrl+click with no prior selection,
+      // and a different row is focused, select both the focused row and
+      // the clicked row (Asana-like behavior).
+      if (!e.shiftKey && (e.metaKey || e.ctrlKey) && selectedIndices.length === 0) {
+        const focusIndex = this.getFocusedRowIndex();
+        if (focusIndex != null && focusIndex !== currentIndex) {
+          // Select focused row
+          if (checkboxes[focusIndex]) {
+            checkboxes[focusIndex].checked = true;
+            this.updateRowSelection(rows[focusIndex], true);
+          }
+          // Select clicked row
+          if (!isCheckboxClick) {
+            checkbox.checked = true;
+          }
+          this.updateRowSelection(rows[currentIndex], true);
+          this.lastCheckedIndex = currentIndex;
+        } else {
+          // Fallback to standard toggle behavior
+          if (!isCheckboxClick) {
+            checkbox.checked = !checkbox.checked;
+          }
+          this.updateRowSelection(rows[currentIndex], checkbox.checked);
+        }
+      } else {
+        // Standard multi-select toggle
+        if (!isCheckboxClick) {
+          checkbox.checked = !checkbox.checked;
+        }
+        this.updateRowSelection(rows[currentIndex], checkbox.checked);
+      }
+
+      // Update global last checked (for non-shift clicks)
+      if (!e.shiftKey) {
+        this.lastCheckedIndex = currentIndex;
+      }
     }
 
     this.updateSortButton();
@@ -1506,6 +1801,9 @@ const App = {
       this.updateRowSelection(row, shouldSelect);
     });
 
+    // Select-all / Deselect-all resets keyboard Shift+Arrow range tracking
+    this.resetKeyboardSelectionRange();
+
     this.updateSortButton();
     this.updateRecolorButton();
     this.updateFindReplaceButton();
@@ -1625,6 +1923,44 @@ const App = {
 
     // Prevent closing when clicking inside picker
     document.getElementById('add-options-popover')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+  },
+
+  initShortcutsPopover: function () {
+    const btn = document.getElementById('shortcuts-info-btn');
+    const popover = document.getElementById('shortcuts-popover');
+    if (!btn || !popover) return;
+
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Close other popovers
+      this.closeColorPicker();
+      this.closeFindReplacePicker();
+      this.closeAddOptionsPopover();
+
+      const isHidden = popover.classList.contains('hidden');
+      if (isHidden) {
+        const rect = btn.getBoundingClientRect();
+        popover.classList.remove('hidden');
+        popover.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+        popover.style.left = (rect.left + window.scrollX) + 'px';
+      } else {
+        popover.classList.add('hidden');
+      }
+    });
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (!popover.classList.contains('hidden') && !popover.contains(e.target) && !btn.contains(e.target)) {
+        popover.classList.add('hidden');
+      }
+    });
+
+    // Prevent closing when clicking inside popover
+    popover.addEventListener('click', (e) => {
       e.stopPropagation();
     });
   },

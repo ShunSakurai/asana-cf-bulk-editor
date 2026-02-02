@@ -78,6 +78,13 @@
                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                 </svg>
               </a>
+              <a href="#" id="shortcuts-info-btn" class="copy-id-btn" title="See keyboard shortcuts">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="7" width="18" height="10" rx="2" ry="2"></rect>
+                  <path d="M7 10h1M10 10h1M13 10h1M16 10h1M6 13h12"></path>
+                </svg>
+              </a>
             </div>
             <div class="selection-controls">
               <a href="#" id="action-select-all">Select all</a>
@@ -203,6 +210,21 @@
       <div class="action-row">
         <div id="add-options-status" class="add-options-status hidden"></div>
         <button id="btn-do-add" class="primary-button">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="shortcuts-popover" class="find-replace-popover hidden">
+    <div class="popover-content">
+      <div class="input-group">
+        <label>Keyboard shortcuts</label>
+        <ul class="shortcuts-list">
+          <li><strong>Shift + click</strong>: select a contiguous range between two options</li>
+          <li><strong>Cmd/Ctrl + click</strong>: multi-select non-contiguous options</li>
+          <li><strong>Shift + Up/Down</strong>: extend or reduce the current selection</li>
+          <li><strong>Cmd/Ctrl + Up/Down</strong>: move the current selection one row up/down</li>
+          <li><strong>Cmd/Ctrl + Shift + Up/Down</strong>: move the current selection to the top/bottom</li>
+        </ul>
       </div>
     </div>
   </div>

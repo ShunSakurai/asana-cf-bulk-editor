@@ -596,13 +596,37 @@ body {
   white-space: nowrap;
 }
 
+.header-info #shortcuts-info-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* When "Copied" badge is shown, push keyboard icon slightly right
+   so it doesn't overlap the "Copied" label, but keep spacing subtle */
+.header-info #field-copy-id-btn.copied + #shortcuts-info-btn {
+  margin-left: 40px;
+}
+
+.shortcuts-list {
+  list-style: disc;
+  padding-left: 16px;
+  margin: 0;
+}
+
+.shortcuts-list li {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
 .selection-controls {
   font-size: 13px;
   margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   /* Align visually with the bottom line of ID text */
 }
-
-
 
 .selection-controls a {
   color: var(--primary-color);

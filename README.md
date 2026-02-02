@@ -38,9 +38,20 @@ If you've done the step 0, workspace and project are pre-selected.
 The left pane will list the field’s **Options** (each with a checkbox, a color swatch, and the option name).
 
 ### 3) Select options (optional)
-- Use checkboxes to select specific options
-- Hold Shift key and click the first and last items to select the range
-- Or use **Select all / Deselect all** for quick bulk selection
+In the left preview pane, you can:
+  - **Use checkboxes** to select specific options
+  - **Use Select all / Deselect all** links for quick bulk selection
+  - **Recolor inline** by clicking the color dot on each option (applied to multiple options if selected)
+  - **Drag & drop** options to reorder
+
+  **Use keyboard shortcuts**:
+  - **Shift + click**: click the first and last items to select a contiguous range
+  - **Cmd/Ctrl + click**: multi-select non‑contiguous options
+  - **Shift + Up/Down**: extend/reduce the selection
+  - **Cmd/Ctrl + Up/Down**: move the current selection one row up/down
+  - **Cmd/Ctrl + Shift + Up/Down**: move the current selection to the top/bottom
+
+> Tip: These shortcuts are designed to mimic Asana’s task selection and movement behavior
 
 ### 4) Use Actions
 In the **Actions** pane on the right:
