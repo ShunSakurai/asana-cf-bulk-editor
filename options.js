@@ -377,10 +377,6 @@ const App = {
         status.className = 'action-status success';
         status.classList.remove('hidden');
 
-        setTimeout(() => {
-          status.classList.add('hidden');
-        }, 3000);
-
         btn.textContent = 'Apply changes';
       })
       .catch(err => {
@@ -529,6 +525,8 @@ const App = {
     } else {
       projectInput.placeholder = "Select a workspace first";
     }
+
+    this.resetActionStatus();
   },
 
   // Projects (Hybrid: Local + Typeahead)
@@ -678,6 +676,8 @@ const App = {
       const link = document.getElementById('project-ext-link');
       if (link) link.classList.add('hidden');
     }
+
+    this.resetActionStatus();
   },
 
   // Custom Fields
@@ -721,6 +721,8 @@ const App = {
     } else {
       this.switchView('empty');
     }
+
+    this.resetActionStatus();
   },
 
   // Options
@@ -1227,6 +1229,20 @@ const App = {
     const btn = document.getElementById('btn-apply');
     if (btn) {
       btn.disabled = !this.state.hasUnsavedChanges || this.state.hasValidationErrors;
+    }
+  },
+
+  resetActionStatus: function () {
+    const status = document.getElementById('action-status');
+    if (status) {
+      status.classList.add('hidden');
+      status.textContent = '';
+      status.className = 'action-status hidden';
+    }
+
+    const btn = document.getElementById('btn-apply');
+    if (btn) {
+      btn.textContent = 'Apply changes';
     }
   },
 
