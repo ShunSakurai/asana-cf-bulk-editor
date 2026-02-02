@@ -456,58 +456,42 @@ const App = {
         this.renderSelect('workspaceSelect', data, '-- Select Workspace --');
         this.elements.workspaceSelect.disabled = false;
 
-        let targetGid = null;
-
-        // 1. Context Priority
+        let workspaceGid = null;
         if (context && context.workspaceGid) {
-          targetGid = context.workspaceGid;
+          workspaceGid = context.workspaceGid;
         }
-
-        // 2. Storage Priority (if no context)
-        if (!targetGid) {
+        if (!workspaceGid) {
           chrome.storage.sync.get(['defaultWorkspaceGid'], (result) => {
-            // ... logic moved inside
             this._finalizeWorkspaceInit(data, result.defaultWorkspaceGid, context);
           });
           return;
         }
-
-        this._finalizeWorkspaceInit(data, targetGid, context);
+        this._finalizeWorkspaceInit(data, workspaceGid, context);
       })
       .catch(err => console.log(err));
   },
 
   _finalizeWorkspaceInit: function (workspaces, contentOrStorageGid, context) {
-    let targetGid = contentOrStorageGid;
-
-    // helper to check if gid exists in options
+    let workspaceGid = contentOrStorageGid;
     const optionExists = (gid) => {
       return Array.from(this.elements.workspaceSelect.options).some(o => o.value === gid);
     };
 
-    if (!targetGid || !optionExists(targetGid)) {
-      // Default to first workspace if available
+    if (!workspaceGid || !optionExists(workspaceGid)) {
       if (workspaces.length > 0) {
-        targetGid = workspaces[0].gid;
+        workspaceGid = workspaces[0].gid;
       }
     }
 
-    if (targetGid) {
-      this.elements.workspaceSelect.value = targetGid;
-      this.onWorkspaceChange(targetGid);
+    if (workspaceGid) {
+      this.elements.workspaceSelect.value = workspaceGid;
+      this.onWorkspaceChange(workspaceGid);
 
-      // If we have a detected project AND it belongs to this workspace
-      if (context && context.project && context.workspaceGid === targetGid) {
-        // Auto-select the project
-        // We need to simulate the "Typeahead Selection"
-
-        // 1. Set Input
+      if (context && context.project && context.workspaceGid === workspaceGid) {
         const input = document.getElementById('project-input');
         input.value = context.project.name;
         input.disabled = false;
-
-        // 2. Trigger Change
-        this.onProjectChange(context.project.gid);
+        this.onProjectChange(context.project.gid, workspaceGid);
       }
     }
   },
@@ -555,7 +539,7 @@ const App = {
 
     const handleSearch = (query) => {
       if (!query) {
-        this.onProjectChange(null);
+        this.onProjectChange(null, this.state.currentWorkspaceGid);
       }
 
       if (this.state.allProjects.length > 0) {
@@ -643,7 +627,7 @@ const App = {
     input.value = project.name;
     document.getElementById('project-list').classList.add('hidden');
 
-    this.onProjectChange(project.gid);
+    this.onProjectChange(project.gid, this.state.currentWorkspaceGid);
   },
 
   // Projects - Fetch All (Try first)
@@ -673,7 +657,7 @@ const App = {
       });
   },
 
-  onProjectChange: function (projectGid) {
+  onProjectChange: function (projectGid, workspaceGid) {
     this.state.currentProjectGid = projectGid;
     this.state.currentFieldGid = null;
 
@@ -685,7 +669,8 @@ const App = {
     if (projectGid) {
       const link = document.getElementById('project-ext-link');
       if (link) {
-        link.href = `https://app.asana.com/project/${projectGid}`;
+        const effectiveWorkspaceGid = workspaceGid || this.state.currentWorkspaceGid;
+        link.href = `https://app.asana.com/1/${effectiveWorkspaceGid}/project/${projectGid}`;
         link.classList.remove('hidden');
       }
       this.fetchCustomFields(projectGid);
