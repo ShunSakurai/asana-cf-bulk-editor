@@ -60,6 +60,8 @@ In the **Actions** pane on the right:
 ### 5) Apply changes
 When you’re happy with the preview/state, click **Apply changes** to write updates back to Asana.
 
+> Tip: Make sure you have permission to edit the custom field/options in that workspace. Organization guests can't edit custom fields. Permissions vary depending on project permission settings and custom field access settings.
+
 ## Privacy policy and terms of use
 
 We don't collect your data. We don't have our server to store, use, and share such information. We only use your Asana data (URLs, resource IDs, names, etc.) to make API calls to Asana through HTTPS. All communications are between you and Asana API. All options are saved to your browser, not in other places.

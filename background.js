@@ -273,6 +273,21 @@ Asana.ServerModel = {
   },
 
   /**
+   * Requests workspace memberships for the logged-in user.
+   * Used to determine if the user is a guest in a workspace.
+   *
+   * @param callback {Function(memberships)} Callback on success.
+   *     memberships {dict[]} - Array of workspace membership objects
+   */
+  workspaceMemberships: function (callback, parameters) {
+    Asana.ApiBridge.request(
+      'GET', '/users/me/workspace_memberships',
+      { opt_fields: 'workspace,is_guest' },
+      callback, {}
+    );
+  },
+
+  /**
    * Requests the custom field settings for a project.
    *
    * @param callback {Function(settings)} Callback on success.

@@ -46,7 +46,8 @@ const App = {
     allProjects: [],
     originalOptions: [],
     hasUnsavedChanges: false,
-    hasValidationErrors: false
+    hasValidationErrors: false,
+    isGuest: false
   },
 
   elements: {
@@ -167,7 +168,6 @@ const App = {
       if (this.state.currentFieldGid) {
         navigator.clipboard.writeText(this.state.currentFieldGid).then(() => {
           const btn = document.getElementById('field-copy-id-btn');
-          const originalTitle = btn.title;
           btn.classList.add('copied');
 
           setTimeout(() => {
@@ -386,6 +386,11 @@ const App = {
     if (viewName === 'empty') {
       rightPanel.classList.add('hidden');
       leftPanel.style.borderRight = 'none'; // distinct style for full width
+
+      // Apply guest restrictions if user is a guest
+      if (this.state.isGuest) {
+        this.applyGuestRestrictions();
+      }
     } else {
       rightPanel.classList.remove('hidden');
       leftPanel.style.borderRight = ''; // restore border
@@ -486,7 +491,12 @@ const App = {
   onWorkspaceChange: function (workspaceGid) {
     this.state.currentWorkspaceGid = workspaceGid;
     this.state.currentProjectGid = null;
+    this.state.currentFieldGid = null;
+    this.state.currentFieldSubtype = null;
     this.state.allProjects = []; // Clear previous workspace projects immediately
+    this.state.isGuest = false;
+    this.clearGuestRestrictions();
+
     try {
       chrome.storage.sync.set({ defaultWorkspaceGid: workspaceGid });
     } catch (e) { }
@@ -506,6 +516,8 @@ const App = {
 
     if (workspaceGid) {
       this.fetchProjects(workspaceGid);
+      // Check guest status in background
+      this.checkGuestStatus(workspaceGid);
     } else {
       projectInput.placeholder = "Select a workspace first";
     }
@@ -569,9 +581,11 @@ const App = {
 
     this.callApi('projectTypeahead', { workspace_gid: workspaceGid, query: query })
       .then(data => {
+        if (this.state.currentWorkspaceGid !== workspaceGid) return;
         this.renderProjectOptions(data);
       })
       .catch(err => {
+        if (this.state.currentWorkspaceGid !== workspaceGid) return;
         this.renderProjectOptions([], 'Error searching projects');
       });
   },
@@ -612,11 +626,15 @@ const App = {
   fetchProjects: function (workspaceGid) {
     this.callApi('projects', { workspace_gid: workspaceGid, archived: false }, { suppressErrorLog: true })
       .then(data => {
+        if (this.state.currentWorkspaceGid !== workspaceGid) return;
         this.state.allProjects = data || [];
-        // Optional: Update placeholder to indicate loaded
-        document.getElementById('project-input').placeholder = "Select or type to search...";
+        // Enable input and update placeholder to indicate loaded
+        const input = document.getElementById('project-input');
+        input.disabled = false;
+        input.placeholder = "Select or type to search...";
       })
       .catch(err => {
+        if (this.state.currentWorkspaceGid !== workspaceGid) return;
         const isTooLarge = err && err.some && err.some(e => e.message && e.message.includes('too large'));
         if (isTooLarge) {
           console.log('Fetch all projects: Result too large, falling back to typeahead');
@@ -624,7 +642,10 @@ const App = {
           console.log('Fetch all projects failed, falling back to typeahead', err);
         }
         this.state.allProjects = []; // Clear to force typeahead
-        document.getElementById('project-input').placeholder = "Type to search projects...";
+        // Still enable input for typeahead mode
+        const input = document.getElementById('project-input');
+        input.disabled = false;
+        input.placeholder = "Type to search projects...";
       });
   },
 
@@ -656,6 +677,7 @@ const App = {
     // https://developers.asana.com/reference/getcustomfieldsettingsforproject
     this.callApi('customFieldSettings', { project_gid: projectGid })
       .then(data => {
+        if (this.state.currentProjectGid !== projectGid) return;
         // Filter for ENUM and MULTI_ENUM fields
         const enumFields = data
           .map(setting => setting.custom_field)
@@ -671,7 +693,10 @@ const App = {
           this.elements.fieldSelect.disabled = false;
         }
       })
-      .catch(err => console.log(err));
+      .catch(err => {
+        if (this.state.currentProjectGid !== projectGid) return;
+        console.log(err);
+      });
   },
 
   onFieldChange: function (fieldGid) {
@@ -695,6 +720,7 @@ const App = {
     // https://developers.asana.com/reference/getcustomfield
     this.callApi('customField', { custom_field_gid: fieldGid })
       .then(data => {
+        if (this.state.currentFieldGid !== fieldGid) return;
         const allOptions = data.enum_options || [];
         this.state.enumOptions = allOptions.filter(opt => opt.enabled !== false);
         this.state.originalOptions = JSON.parse(JSON.stringify(this.state.enumOptions));
@@ -717,8 +743,15 @@ const App = {
 
         this.renderEnumList(this.state.enumOptions);
         this.switchView('current');
+
+        if (this.state.isGuest) {
+          this.applyGuestRestrictions();
+        }
       })
-      .catch(err => console.log(err));
+      .catch(err => {
+        if (this.state.currentFieldGid !== fieldGid) return;
+        console.log(err);
+      });
   },
 
   // UI Rendering
@@ -1861,6 +1894,89 @@ const App = {
 
     this.updateFindReplaceStatus(`${replacedCount} options found and replaced`);
     this.checkForChanges();
+  },
+
+  // Guest Status Check
+  checkGuestStatus: function (workspaceGid) {
+    this.callApi('workspaceMemberships', {})
+      .then(memberships => {
+        if (this.state.currentWorkspaceGid !== workspaceGid) return;
+        // Find the membership for the current workspace
+        const membership = memberships.find(m => m.workspace && m.workspace.gid === workspaceGid);
+        if (membership && membership.is_guest) {
+          this.state.isGuest = true;
+          this.applyGuestRestrictions();
+        } else {
+          this.state.isGuest = false;
+          this.clearGuestRestrictions();
+        }
+      })
+      .catch(err => {
+        if (this.state.currentWorkspaceGid !== workspaceGid) return;
+        console.warn('Failed to check guest status', err);
+        // Default to non-guest on error
+        this.state.isGuest = false;
+      });
+  },
+
+  applyGuestRestrictions: function () {
+    const hasFieldSelected = !!this.state.currentFieldGid;
+
+    if (hasFieldSelected) {
+      // After CF selection: show options (they're already rendered), gray out panels, and show status message
+      document.getElementById('left-panel').classList.add('read-only');
+      document.getElementById('right-panel').classList.add('read-only');
+
+      const status = document.getElementById('action-status');
+      if (status) {
+        status.textContent = "Guests can't edit custom fields";
+        status.className = 'action-status guest-status';
+        status.classList.remove('hidden');
+      }
+    } else {
+      // Before CF selection: update empty state message with guest styling (keep single column)
+      // Make sure to remove read-only class so the warning is not grayed out
+      document.getElementById('left-panel').classList.remove('read-only');
+      document.getElementById('right-panel').classList.remove('read-only');
+
+      const emptyMessage = document.querySelector('#state-empty .empty-message');
+      if (emptyMessage) {
+        emptyMessage.classList.add('guest-message');
+        emptyMessage.innerHTML = `
+          <svg class="guest-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <h2>Select Another Workspace</h2>
+          <p>Guests can't edit custom fields. You can view options and copy the field ID, but changes cannot be saved.</p>
+        `;
+      }
+    }
+  },
+
+  clearGuestRestrictions: function () {
+    // Remove read-only from panels
+    document.getElementById('left-panel').classList.remove('read-only');
+    document.getElementById('right-panel').classList.remove('read-only');
+
+    // Clear guest status message
+    const status = document.getElementById('action-status');
+    if (status && status.classList.contains('guest-status')) {
+      status.classList.add('hidden');
+      status.classList.remove('guest-status');
+    }
+
+    // Restore empty state message
+    const emptyMessage = document.querySelector('#state-empty .empty-message');
+    if (emptyMessage) {
+      emptyMessage.classList.remove('guest-message');
+      emptyMessage.innerHTML = `
+        <h2>Select a Custom Field</h2>
+        <p>To start editing, choose a workspace, project, and enum custom field in the header.</p>
+      `;
+    }
   },
 };
 
