@@ -13,8 +13,6 @@ You can preview the changes on the extension before committing them in Asana.
 
 You can install the extension from the **[Chrome Web Store](https://chromewebstore.google.com/detail/jiohgocpmahpmdmekkcfmnadjfameaco?utm_source=github)**.
 
-*Coming soon on Firefox store*
-
 ## How to use
 
 Please watch the "How to use" video on YouTube for details:
@@ -89,7 +87,7 @@ I try my best to maintain the quality and safety of this extension, but please u
 ## Feedback and contribution
 
 I'd love to hear from users and developers.
-Please feel free to post feature requests, bug reports, and questions through the [Chrome Web Store](https://chromewebstore.google.com/detail/jiohgocpmahpmdmekkcfmnadjfameaco?utm_source=github), ~~addons.mozilla.org~~, [GitHub Issues](https://github.com/ShunSakurai/asana-cf-bulk-editor/issues). Issues and pull requests are welcome.
+Please feel free to post feature requests, bug reports, and questions through the [Chrome Web Store](https://chromewebstore.google.com/detail/jiohgocpmahpmdmekkcfmnadjfameaco?utm_source=github), [GitHub Issues](https://github.com/ShunSakurai/asana-cf-bulk-editor/issues). Issues and pull requests are welcome.
 
 ## License
 

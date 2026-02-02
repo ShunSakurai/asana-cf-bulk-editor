@@ -644,7 +644,7 @@ body {
 }
 
 .enum-list {
-  padding: 8px 0;
+  padding: 8px 0 80px 0;
 }
 
 .enum-row {
@@ -1023,7 +1023,8 @@ body {
   right: 0;
   bottom: 0;
   background-color: rgba(246, 248, 249, 0.6);
-  pointer-events: none;
+  /* Block interactions with all underlying elements by default. */
+  pointer-events: auto;
   z-index: 100;
 }
 

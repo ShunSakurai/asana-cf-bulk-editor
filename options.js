@@ -180,6 +180,19 @@ const App = {
 
     // Keyboard shortcuts for moving selected options (Cmd/Ctrl + Arrow keys)
     document.addEventListener('keydown', (e) => this.handleKeydown(e));
+
+    // Handle dragover and drop on the container for delegation (supports dropping in padding/empty space)
+    this.elements.enumList.addEventListener('dragover', (e) => {
+      const row = e.target.closest('.enum-row');
+      const index = row ? parseInt(row.dataset.index, 10) : undefined;
+      this.handleDragOver(e, index);
+    });
+
+    this.elements.enumList.addEventListener('drop', (e) => {
+      const row = e.target.closest('.enum-row');
+      const index = row ? parseInt(row.dataset.index, 10) : undefined;
+      this.handleDrop(e, index);
+    });
   },
 
   // ... (switchView, callApi, fetchWorkspaces...)
@@ -796,10 +809,8 @@ const App = {
 
       // Drag Events
       row.addEventListener('dragstart', (e) => this.handleDragStart(e, index));
-      row.addEventListener('dragover', (e) => this.handleDragOver(e, index));
       row.addEventListener('dragenter', (e) => this.handleDragEnter(e, index));
       row.addEventListener('dragleave', (e) => this.handleDragLeave(e, index));
-      row.addEventListener('drop', (e) => this.handleDrop(e, index));
       row.addEventListener('dragend', (e) => this.handleDragEnd(e, index));
 
       // Drag Handle
@@ -1272,27 +1283,33 @@ const App = {
       });
     }, 0);
   },
-
   handleDragOver: function (e, index) {
     e.preventDefault(); // Allow drop
     e.dataTransfer.dropEffect = 'move';
 
-    if (this.draggedIndices.includes(index)) return; // Don't highlight self
-
-    const row = this.elements.enumList.children[index];
-    const rect = row.getBoundingClientRect();
-    const midpoint = rect.top + rect.height / 2;
-
-    // Determine invalid drop targets (inside the moving block)
-    // Actually, standard HTML5 DnD logic handles this mostly, but visual feedback needs care.
+    if (index !== undefined && this.draggedIndices.includes(index)) return; // Don't highlight self
 
     // Remove existing highlights
     this.clearDragHighlights();
 
-    if (e.clientY < midpoint) {
-      row.classList.add('drag-over-top');
+    if (index !== undefined) {
+      const row = this.elements.enumList.children[index];
+      const rect = row.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+
+      if (e.clientY < midpoint) {
+        row.classList.add('drag-over-top');
+      } else {
+        row.classList.add('drag-over-bottom');
+      }
     } else {
-      row.classList.add('drag-over-bottom');
+      // If we're over the list container but not a specific row (e.g. padding at bottom),
+      // we highlight the bottom of the last row as the target.
+      const rows = this.elements.enumList.querySelectorAll('.enum-row');
+      if (rows.length > 0) {
+        const lastRow = rows[rows.length - 1];
+        lastRow.classList.add('drag-over-bottom');
+      }
     }
   },
 
@@ -1325,11 +1342,21 @@ const App = {
 
     if (!this.draggedIndices) return;
 
-    const targetIndex = index;
-    const row = this.elements.enumList.children[targetIndex];
-    const rect = row.getBoundingClientRect();
-    const midpoint = rect.top + rect.height / 2;
-    const insertAfter = e.clientY > midpoint;
+    let targetIndex = index;
+    let insertAfter = false;
+
+    if (targetIndex !== undefined) {
+      const row = this.elements.enumList.children[targetIndex];
+      const rect = row.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      insertAfter = e.clientY > midpoint;
+    } else {
+      // Dropped on the container (padding). Treat as drop at the very bottom.
+      const rows = this.elements.enumList.querySelectorAll('.enum-row');
+      if (rows.length === 0) return;
+      targetIndex = rows.length - 1;
+      insertAfter = true;
+    }
 
     // Capture current values (in case of edits)
     const currentValues = [];
@@ -1477,7 +1504,7 @@ const App = {
     const total = this.state.enumOptions.length;
     const selectedCount = selectedIndices.length;
 
-    if (selectedCount > 1 && selectedCount < total) {
+    if (selectedCount > 0 && selectedCount < total) {
       if (desc) desc.textContent = 'Sort selected options alphabetically';
     } else {
       if (desc) desc.textContent = 'Sort all options alphabetically';
