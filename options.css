@@ -381,17 +381,7 @@ body {
   transform: translateY(-1px);
 }
 
-.feature-card.coming-soon {
-  opacity: 0.6;
-  cursor: default;
-  background-color: #f9f9f9;
-}
 
-.feature-card.coming-soon:hover {
-  border-color: var(--border-light);
-  box-shadow: none;
-  transform: none;
-}
 
 .feature-card:active {
   background-color: #f6f8f9;
@@ -560,7 +550,7 @@ body {
   color: var(--text-primary);
 }
 
-.copy-id-btn {
+.header-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -571,19 +561,19 @@ body {
   border-radius: 4px;
 }
 
-.copy-id-btn:hover {
+.header-icon-btn:hover {
   background-color: #f6f8f9;
   color: var(--primary-color);
   opacity: 1;
 }
 
-.copy-id-btn.copied {
+.header-icon-btn.copied {
   color: var(--success-text, #2e7d32);
   opacity: 1;
   position: relative;
 }
 
-.copy-id-btn.copied::after {
+.header-icon-btn.copied::after {
   content: "Copied";
   position: absolute;
   left: 100%;
@@ -603,7 +593,7 @@ body {
 
 /* When "Copied" badge is shown, push keyboard icon slightly right
    so it doesn't overlap the "Copied" label, but keep spacing subtle */
-.header-info #field-copy-id-btn.copied + #shortcuts-info-btn {
+.header-info #field-copy-id-btn.copied+#shortcuts-info-btn {
   margin-left: 40px;
 }
 
@@ -991,22 +981,7 @@ body {
   box-shadow: 0 0 0 2px white, 0 0 0 4px var(--primary-color);
 }
 
-/* Guest Warning Banner */
-.guest-warning {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
-  background-color: #fff3cd;
-  border-bottom: 1px solid #ffc107;
-  color: #856404;
-  font-size: 14px;
-}
 
-.guest-warning svg {
-  flex-shrink: 0;
-  color: #856404;
-}
 
 /* Read-only Mode for Guest Users */
 #left-panel.read-only,
@@ -1028,9 +1003,19 @@ body {
   z-index: 100;
 }
 
-/* Allow interaction with specific elements in read-only mode */
-#left-panel.read-only .copy-id-btn {
-  position: relative;
+/* Interactivity in read-only mode: Keep Copy ID but block Shortcuts/Selection controls */
+#left-panel.read-only .list-header {
   z-index: 101;
-  pointer-events: auto;
+}
+
+#left-panel.read-only #field-copy-id-btn {
+  position: relative;
+  z-index: 102;
+  pointer-events: auto !important;
+}
+
+#left-panel.read-only #shortcuts-info-btn,
+#left-panel.read-only .selection-controls {
+  pointer-events: none;
+  opacity: 0.3;
 }

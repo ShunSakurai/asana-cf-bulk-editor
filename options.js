@@ -58,7 +58,9 @@ const App = {
       loading: null,
       current: null
     },
-    enumList: null
+    enumList: null,
+    applyBtn: null,
+    actionStatus: null
   },
 
   init: function () {
@@ -69,6 +71,8 @@ const App = {
     this.elements.views.loading = document.getElementById('state-loading');
     this.elements.views.current = document.getElementById('state-current');
     this.elements.enumList = document.getElementById('enum-list');
+    this.elements.applyBtn = document.getElementById('btn-apply');
+    this.elements.actionStatus = document.getElementById('action-status');
 
     this.attachEventListeners();
     this.initTypeahead();
@@ -135,7 +139,7 @@ const App = {
     });
 
     // Save Button
-    document.getElementById('btn-apply').addEventListener('click', () => {
+    this.elements.applyBtn.addEventListener('click', () => {
       this.saveChanges();
     });
 
@@ -358,9 +362,14 @@ const App = {
       })
       .then(() => {
         // All Done
+        // Filter out options that were marked for deletion
+        this.state.enumOptions = this.state.enumOptions.filter(opt => opt.enabled !== false);
         this.state.originalOptions = JSON.parse(JSON.stringify(this.state.enumOptions));
         this.state.hasUnsavedChanges = false;
+
+        this.renderEnumList(this.state.enumOptions);
         this.updateApplyButton();
+        this.updateActionCards();
 
         // Show Status
         const status = document.getElementById('action-status');
@@ -370,8 +379,6 @@ const App = {
 
         setTimeout(() => {
           status.classList.add('hidden');
-          const disabledRows = this.elements.enumList.querySelectorAll('.enum-row.disabled');
-          disabledRows.forEach(row => row.remove());
         }, 3000);
 
         btn.textContent = 'Apply changes';
@@ -743,9 +750,7 @@ const App = {
         this.state.originalOptions = JSON.parse(JSON.stringify(this.state.enumOptions));
         this.state.hasUnsavedChanges = false;
         this.updateApplyButton();
-        this.updateSortButton();
-        this.updateRecolorButton();
-        this.updateFindReplaceButton();
+        this.updateActionCards();
 
         // Update Header Info
         const typeLabel = document.getElementById('field-type-label');
@@ -1072,9 +1077,7 @@ const App = {
 
     this.lastCheckedIndex = nextCursor;
 
-    this.updateSortButton();
-    this.updateRecolorButton();
-    this.updateFindReplaceButton();
+    this.updateActionCards();
   },
 
   moveSelectionStep: function (direction, selectedGids) {
@@ -1175,28 +1178,19 @@ const App = {
       this.lastCheckedIndex = lastIndex;
     }
 
-    this.updateSortButton();
-    this.updateRecolorButton();
-    this.updateFindReplaceButton();
+    this.updateActionCards();
   },
 
   // Change Tracking
   checkForChanges: function () {
     // Collect current state from DOM
+    this.syncStateFromDom();
     const currentOptions = [];
-    const rows = this.elements.enumList.querySelectorAll('.enum-row');
 
     // We iterate over the *state* to preserve IDs, but get values from DOM
     // Note: If we had drag-and-drop reordering, we'd need to trust DOM order.
     // For now, assuming index mapping is stable.
-    this.state.enumOptions.forEach((opt, index) => {
-      const row = rows[index];
-      if (row) {
-        const input = row.querySelector('.option-input');
-        // Update state name with current DOM value
-        opt.name = input.value;
-      }
-
+    this.state.enumOptions.forEach((opt) => {
       currentOptions.push({
         gid: opt.gid,
         name: opt.name,
@@ -1253,7 +1247,6 @@ const App = {
 
   // Drag and Drop Handlers
   handleDragStart: function (e, index) {
-    this.draggedIndex = index;
     e.dataTransfer.effectAllowed = 'move';
 
     // Determine what is being dragged
@@ -1333,7 +1326,6 @@ const App = {
     });
     this.clearDragHighlights();
     this.draggedIndices = null;
-    this.draggedIndex = null;
   },
 
   handleDrop: function (e, index) {
@@ -1371,8 +1363,7 @@ const App = {
     // Identify items to move
     const itemsToMove = this.draggedIndices.map(i => currentValues[i]);
 
-    // Remove items from array (descending index order to avoid shifting issues)
-    const indicesToRemove = [...this.draggedIndices].sort((a, b) => b - a);
+
 
     // Calculate insertion index
     // When we remove items, indices shift. logic:
@@ -1404,17 +1395,8 @@ const App = {
     this.state.enumOptions = newArray;
     this.renderEnumList(this.state.enumOptions);
 
-    // Restore Selection (Optional, beneficial)
-    // We can re-check the moved items
-    const checkboxes = this.elements.enumList.querySelectorAll('.option-checkbox');
-    // We need to know where they ended up. They are now at [newTargetIndex, newTargetIndex + count]
-    for (let i = 0; i < itemsToMove.length; i++) {
-      const newIdx = newTargetIndex + i;
-      if (checkboxes[newIdx]) {
-        checkboxes[newIdx].checked = true;
-        this.updateRowSelection(this.elements.enumList.children[newIdx], true);
-      }
-    }
+    // Restore Selection (based on matching objects/GIDs)
+    this.restoreSelectionByGids(new Set(itemsToMove.map(opt => opt.gid)));
 
     this.checkForChanges();
   },
@@ -1488,44 +1470,40 @@ const App = {
       }
     }
 
-    this.updateSortButton();
-    this.updateRecolorButton();
-    this.updateFindReplaceButton();
+    this.updateActionCards();
   },
 
-  updateSortButton: function () {
-    const btn = document.getElementById('btn-sort');
-    if (!btn) return;
-
-    const desc = btn.querySelector('.card-desc');
-
-    // Check how many selected
+  updateActionCards: function () {
     const selectedIndices = this.getSelectedIndices();
     const total = this.state.enumOptions.length;
-    const selectedCount = selectedIndices.length;
+    const count = selectedIndices.length;
+    const isPartial = count > 0 && count < total;
 
-    if (selectedCount > 0 && selectedCount < total) {
-      if (desc) desc.textContent = 'Sort selected options alphabetically';
-    } else {
-      if (desc) desc.textContent = 'Sort all options alphabetically';
+    // Sort Card
+    const sortBtn = document.getElementById('btn-sort');
+    if (sortBtn) {
+      const desc = sortBtn.querySelector('.card-desc');
+      if (desc) {
+        desc.textContent = isPartial ? 'Sort selected options alphabetically' : 'Sort all options alphabetically';
+      }
     }
-  },
 
-  updateRecolorButton: function () {
-    const btn = document.getElementById('btn-bulk-recolor');
-    if (!btn) return;
+    // Recolor Card
+    const recolorBtn = document.getElementById('btn-bulk-recolor');
+    if (recolorBtn) {
+      const desc = recolorBtn.querySelector('.card-desc');
+      if (desc) {
+        desc.textContent = isPartial ? 'Assign color to selected options' : 'Assign color to all options';
+      }
+    }
 
-    const desc = btn.querySelector('.card-desc');
-
-    // Check how many selected
-    const selectedIndices = this.getSelectedIndices();
-    const total = this.state.enumOptions.length;
-    const selectedCount = selectedIndices.length;
-
-    if (selectedCount > 0 && selectedCount < total) {
-      if (desc) desc.textContent = 'Assign color to selected options';
-    } else {
-      if (desc) desc.textContent = 'Assign color to all options';
+    // Find & Replace Card
+    const frBtn = document.getElementById('btn-bulk-find-replace');
+    if (frBtn) {
+      const desc = frBtn.querySelector('.card-desc');
+      if (desc) {
+        desc.textContent = isPartial ? 'Find and replace text in selected options' : 'Find and replace text in all options';
+      }
     }
   },
 
@@ -1557,29 +1535,11 @@ const App = {
     this.checkForChanges();
   },
 
-  updateFindReplaceButton: function () {
-    const btn = document.getElementById('btn-bulk-find-replace');
-    if (!btn) return;
 
-    const desc = btn.querySelector('.card-desc');
-
-    const selectedIndices = this.getSelectedIndices();
-    const total = this.state.enumOptions.length;
-    const selectedCount = selectedIndices.length;
-
-    if (selectedCount > 0 && selectedCount < total) {
-      if (desc) desc.textContent = 'Find and replace text in selected options';
-    } else {
-      if (desc) desc.textContent = 'Find and replace text in all options';
-    }
-  },
 
   sortOptions: function () {
     // 1. Capture current values from DOM (in case user edited names but didn't save)
-    const rows = this.elements.enumList.querySelectorAll('.enum-row');
-    rows.forEach((row, i) => {
-      this.state.enumOptions[i].name = row.querySelector('.option-input').value;
-    });
+    this.syncStateFromDom();
 
     const selectedIndices = this.getSelectedIndices();
     const selectedGids = new Set(selectedIndices.map(i => this.state.enumOptions[i].gid));
@@ -1613,19 +1573,10 @@ const App = {
 
     // Restore Selection
     if (selectedGids.size > 0) {
-      const newRows = this.elements.enumList.querySelectorAll('.enum-row');
-      const newCheckboxes = this.elements.enumList.querySelectorAll('.option-checkbox');
-      this.state.enumOptions.forEach((opt, i) => {
-        if (selectedGids.has(opt.gid)) {
-          newCheckboxes[i].checked = true;
-          this.updateRowSelection(newRows[i], true);
-        }
-      });
+      this.restoreSelectionByGids(selectedGids);
+    } else {
+      this.updateActionCards();
     }
-
-    this.updateSortButton();
-    this.updateRecolorButton();
-    this.updateFindReplaceButton();
     this.checkForChanges();
   },
 
@@ -1702,18 +1653,8 @@ const App = {
     const picker = document.getElementById('color-picker');
     const target = e.currentTarget;
 
-    // Close others
-    this.closeFindReplacePicker();
-    this.closeAddOptionsPopover();
-
-    // Unhide first so dimensions are available if needed
-    picker.classList.remove('hidden');
-
-    const rect = target.getBoundingClientRect();
-
-    // Position popover
-    picker.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-    picker.style.left = (rect.left + window.scrollX) + 'px';
+    this.closeAllPopovers();
+    this.positionPopover(picker, target);
   },
 
   closeColorPicker: function () {
@@ -1831,9 +1772,7 @@ const App = {
     // Select-all / Deselect-all resets keyboard Shift+Arrow range tracking
     this.resetKeyboardSelectionRange();
 
-    this.updateSortButton();
-    this.updateRecolorButton();
-    this.updateFindReplaceButton();
+    this.updateActionCards();
   },
 
   // Find & Replace Logic
@@ -1880,20 +1819,14 @@ const App = {
   openFindReplacePicker: function (e) {
     const picker = document.getElementById('find-replace-picker');
     const target = e.currentTarget;
-    const rect = target.getBoundingClientRect();
 
     // Close others
-    this.closeColorPicker();
-    this.closeAddOptionsPopover();
+    this.closeAllPopovers();
 
     // Clear status
     this.updateFindReplaceStatus('');
 
-    picker.classList.remove('hidden');
-
-    // Position popover
-    picker.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-    picker.style.left = (rect.left + window.scrollX) + 'px';
+    this.positionPopover(picker, target, -200);
 
     // Sync helper text
     const regexCheckbox = document.getElementById('find-regex');
@@ -1964,16 +1897,11 @@ const App = {
       e.stopPropagation();
 
       // Close other popovers
-      this.closeColorPicker();
-      this.closeFindReplacePicker();
-      this.closeAddOptionsPopover();
+      this.closeAllPopovers();
 
       const isHidden = popover.classList.contains('hidden');
       if (isHidden) {
-        const rect = btn.getBoundingClientRect();
-        popover.classList.remove('hidden');
-        popover.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-        popover.style.left = (rect.left + window.scrollX) + 'px';
+        this.positionPopover(popover, btn, 0);
       } else {
         popover.classList.add('hidden');
       }
@@ -1992,39 +1920,47 @@ const App = {
     });
   },
 
-  openAddOptionsPopover: function (e) {
-    const picker = document.getElementById('add-options-popover');
-    const target = e.currentTarget;
+  positionPopover: function (popover, target, offsetX = 0) {
     const rect = target.getBoundingClientRect();
+    popover.classList.remove('hidden');
+    popover.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    popover.style.left = (rect.left + window.scrollX + offsetX) + 'px';
+  },
 
-    // Close others
+  closeAllPopovers: function () {
     this.closeColorPicker();
     this.closeFindReplacePicker();
+    this.closeAddOptionsPopover();
+    const shortcuts = document.getElementById('shortcuts-popover');
+    if (shortcuts) shortcuts.classList.add('hidden');
+  },
 
-    // Reset to default color: none
-    this.state.selectedAddColor = 'none';
-    const colorGrid = document.getElementById('add-options-color-grid');
-    if (colorGrid) {
-      colorGrid.querySelectorAll('.color-option').forEach(dot => {
-        if (dot.dataset.color === 'none') {
-          dot.classList.add('selected');
-        } else {
-          dot.classList.remove('selected');
-        }
-      });
+  openAddOptionsPopover: function (e) {
+    const popover = document.getElementById('add-options-popover');
+    const target = e.currentTarget;
+
+    this.closeAllPopovers();
+
+    popover.classList.toggle('hidden');
+    if (!popover.classList.contains('hidden')) {
+      // Reset to default color: none
+      this.state.selectedAddColor = 'none';
+      const colorGrid = document.getElementById('add-options-color-grid');
+      if (colorGrid) {
+        colorGrid.querySelectorAll('.color-option').forEach(dot => {
+          if (dot.dataset.color === 'none') {
+            dot.classList.add('selected');
+          } else {
+            dot.classList.remove('selected');
+          }
+        });
+      }
+      // Clear status
+      this.updateAddOptionsStatus('');
+
+      this.positionPopover(popover, target, -240);
+      document.getElementById('add-options-input').focus();
     }
-
-    // Clear status
-    this.updateAddOptionsStatus('');
-
-    picker.classList.remove('hidden');
-
-    // Position popover
-    picker.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-    picker.style.left = (rect.left + window.scrollX) + 'px';
-
-    // Focus textarea
-    document.getElementById('add-options-input')?.focus();
   },
 
   closeAddOptionsPopover: function () {
@@ -2194,9 +2130,7 @@ const App = {
     }
 
     if (selectedIndicesBefore.length === 0) {
-      this.updateSortButton();
-      this.updateRecolorButton();
-      this.updateFindReplaceButton();
+      this.updateActionCards();
     }
 
     return matchCount;

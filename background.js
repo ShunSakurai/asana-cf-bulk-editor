@@ -195,7 +195,7 @@ Asana.ServerModel = {
 
   /**
    * Request to the Cookie.
-   * /
+   */
 
   /**
    * Determine if the user is logged in.
@@ -214,7 +214,7 @@ Asana.ServerModel = {
 
   /**
    * Requests to the API.
-   * /
+   */
 
   /**
    *
